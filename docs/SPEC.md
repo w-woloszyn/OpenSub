@@ -52,7 +52,26 @@ This ensures `paidThrough` is never "stuck" in the past after a charge and preve
 ### One active subscription per plan per subscriber (MVP invariant)
 - At most one "current" subscription exists per `(planId, subscriber)`.
 - `activeSubscriptionOf[planId][subscriber]` points to that subscription.
-- A new subscription is blocked when the existing subscription still grants access.
+
+**Safe resubscribe rule (current behavior):**
+
+- A new subscription is blocked when the existing "current" subscription is:
+  - `status == Active` (**even if** `now >= paidThrough` and access has already expired).
+  - `status == NonRenewing` **and** access is still active (`now < paidThrough`).
+
+If the pointer targets a stale subscription (`Cancelled`, or `NonRenewing` with expired access),
+`subscribe()` clears the pointer and creates a fresh subscription.
+
+**Why block resubscribe while `Active` even if expired?**
+
+Because `collect()` is callable by `subscriptionId`. If we allowed a second subscription to be
+created while the old one is still `Active`, a collector could later charge the old subscription
+and create unintended double-charging behavior.
+
+To resubscribe after an `Active` subscription has expired, the subscriber must either:
+
+- renew it (call `collect()`), or
+- cancel it (note: `cancel(..., true)` cancels immediately when overdue), which clears the pointer.
 
 ## Cancellation (Pattern A)
 

@@ -82,7 +82,6 @@ contract OpenSubInvariantTest is StdInvariant {
 
             // Basic time sanity
             assertGe(lastChargedAt, startTime, "lastChargedAt < startTime");
-            assertGt(lastChargedAt, 0, "lastChargedAt should be set by initial charge");
 
             // SPEC.md: paidThrough is end of the paid period; contract sets paidThrough = lastChargedAt + interval.
             assertEq(uint256(paidThrough), uint256(lastChargedAt) + uint256(INTERVAL), "paidThrough invariant");

@@ -2,6 +2,10 @@
 
 Minimal on-chain subscription primitive (Solidity) with a Milestone 3 test scaffold.
 
+## Milestone 1 (market + product definition)
+
+Milestone 1 is captured in `docs/MILESTONE1.md` (problem statement, market tailwinds, competitor scan, positioning, requirements, validation plan).
+
 ## What’s included
 - `createPlan(token, price, interval, collectorFeeBps)`
 - `setPlanActive(planId, active)`
