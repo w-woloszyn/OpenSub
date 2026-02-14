@@ -9,7 +9,7 @@ import {MockERC20} from "src/mocks/MockERC20.sol";
 
 /// @notice Stateful invariant tests for OpenSub (Milestone 3).
 /// @dev Encodes invariants from docs/SPEC.md and risks from docs/THREAT_MODEL.md.
-contract OpenSubInvariantTest is StdInvariant {
+contract OpenSubInvariantTest is StdInvariant, Test {
     OpenSub internal opensub;
     MockERC20 internal token;
 
@@ -82,6 +82,9 @@ contract OpenSubInvariantTest is StdInvariant {
 
             // Basic time sanity
             assertGe(lastChargedAt, startTime, "lastChargedAt < startTime");
+
+            // NOTE: Do not assert `lastChargedAt > 0` because some test environments may start at
+            // timestamp 0. We only require internal consistency.
 
             // SPEC.md: paidThrough is end of the paid period; contract sets paidThrough = lastChargedAt + interval.
             assertEq(uint256(paidThrough), uint256(lastChargedAt) + uint256(INTERVAL), "paidThrough invariant");

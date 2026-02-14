@@ -53,25 +53,19 @@ This ensures `paidThrough` is never "stuck" in the past after a charge and preve
 - At most one "current" subscription exists per `(planId, subscriber)`.
 - `activeSubscriptionOf[planId][subscriber]` points to that subscription.
 
-**Safe resubscribe rule (current behavior):**
+**Safe resubscribe rule (intentional):**
+- A new subscription is blocked if the existing subscription is:
+  - `Active` (**always**, even if `now >= paidThrough`)
+  - `NonRenewing` AND `now < paidThrough` (still has access)
 
-- A new subscription is blocked when the existing "current" subscription is:
-  - `status == Active` (**even if** `now >= paidThrough` and access has already expired).
-  - `status == NonRenewing` **and** access is still active (`now < paidThrough`).
+Rationale:
+- Prevents accidental double-charging footguns because `collect(subscriptionId)` is callable by `subscriptionId`
+  even if the subscription is no longer the "current" pointer (if we allowed replacing an Active subscription).
 
-If the pointer targets a stale subscription (`Cancelled`, or `NonRenewing` with expired access),
-`subscribe()` clears the pointer and creates a fresh subscription.
+UX implication:
+- If a subscription is `Active` but due/expired, the user should **renew via `collect()`** (or cancel immediately and then subscribe again).
+- If the existing subscription is `NonRenewing` and expired, or `Cancelled`, `subscribe()` will clear the stale pointer and allow a new subscription.
 
-**Why block resubscribe while `Active` even if expired?**
-
-Because `collect()` is callable by `subscriptionId`. If we allowed a second subscription to be
-created while the old one is still `Active`, a collector could later charge the old subscription
-and create unintended double-charging behavior.
-
-To resubscribe after an `Active` subscription has expired, the subscriber must either:
-
-- renew it (call `collect()`), or
-- cancel it (note: `cancel(..., true)` cancels immediately when overdue), which clears the pointer.
 
 ## Cancellation (Pattern A)
 

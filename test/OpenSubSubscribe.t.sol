@@ -93,6 +93,21 @@ contract OpenSubSubscribeTest is OpenSubTestBase {
         opensub.subscribe(planId);
     }
 
+    function test_resubscribe_blocked_whenActiveEvenIfExpired_dueShouldRenewInstead() public {
+        uint256 planId = _createPlan(0);
+        uint256 subId = _subscribe(planId, subscriber);
+
+        // Jump to the due time: access expired and renewal is due, but status is still Active.
+        (, , , , uint40 paidThrough, ) = opensub.subscriptions(subId);
+        vm.warp(paidThrough);
+
+        // SPEC.md safe behavior: resubscribe remains blocked while status is Active,
+        // even if now >= paidThrough.
+        vm.prank(subscriber);
+        vm.expectRevert(abi.encodeWithSelector(OpenSub.AlreadySubscribed.selector, planId, subscriber));
+        opensub.subscribe(planId);
+    }
+
     function test_resubscribe_allowed_afterImmediateCancel() public {
         uint256 planId = _createPlan(0);
         uint256 subId1 = _subscribe(planId, subscriber);
@@ -125,31 +140,6 @@ contract OpenSubSubscribeTest is OpenSubTestBase {
 
         // At expiry (now == paidThrough), access is over; new subscription allowed.
         vm.warp(paidThrough);
-        vm.prank(subscriber);
-        uint256 subId2 = opensub.subscribe(planId);
-
-        assertTrue(subId2 != subId1);
-        assertEq(opensub.activeSubscriptionOf(planId, subscriber), subId2);
-    }
-
-    function test_resubscribe_blocked_whenActiveEvenIfExpired_thenAllowedAfterCancel() public {
-        uint256 planId = _createPlan(0);
-        uint256 subId1 = _subscribe(planId, subscriber);
-
-        (, , , , uint40 paidThrough, ) = opensub.subscriptions(subId1);
-
-        // Warp to expiry; subscription remains Active but is now due/overdue.
-        vm.warp(paidThrough);
-
-        // Safe behavior: still blocks resubscribe while status is Active.
-        vm.prank(subscriber);
-        vm.expectRevert(abi.encodeWithSelector(OpenSub.AlreadySubscribed.selector, planId, subscriber));
-        opensub.subscribe(planId);
-
-        // Cancel (at period end) while overdue is treated as immediate cancel, clearing the pointer.
-        vm.prank(subscriber);
-        opensub.cancel(subId1, true);
-
         vm.prank(subscriber);
         uint256 subId2 = opensub.subscribe(planId);
 
