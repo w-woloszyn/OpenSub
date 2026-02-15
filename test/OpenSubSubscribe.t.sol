@@ -57,9 +57,7 @@ contract OpenSubSubscribeTest is OpenSubTestBase {
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         // Filter to OpenSub-emitted logs only.
-        bytes32 chargedSig = keccak256(
-            "Charged(uint256,uint256,address,address,uint256,uint256,address,uint40,uint40)"
-        );
+        bytes32 chargedSig = keccak256("Charged(uint256,uint256,address,address,uint256,uint256,address,uint40,uint40)");
         bytes32 subscribedSig = keccak256("Subscribed(uint256,uint256,address,uint40,uint40)");
 
         bytes32[] memory opensubTopics = new bytes32[](2);
@@ -80,7 +78,7 @@ contract OpenSubSubscribeTest is OpenSubTestBase {
         assertEq(opensubTopics[1], subscribedSig, "second OpenSub event should be Subscribed");
 
         // Also sanity-check the subscription exists.
-        (, address who, , , , ) = opensub.subscriptions(subId);
+        (, address who,,,,) = opensub.subscriptions(subId);
         assertEq(who, subscriber);
     }
 
@@ -98,7 +96,7 @@ contract OpenSubSubscribeTest is OpenSubTestBase {
         uint256 subId = _subscribe(planId, subscriber);
 
         // Jump to the due time: access expired and renewal is due, but status is still Active.
-        (, , , , uint40 paidThrough, ) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThrough,) = opensub.subscriptions(subId);
         vm.warp(paidThrough);
 
         // SPEC.md safe behavior: resubscribe remains blocked while status is Active,
@@ -126,7 +124,7 @@ contract OpenSubSubscribeTest is OpenSubTestBase {
         uint256 planId = _createPlan(0);
         uint256 subId1 = _subscribe(planId, subscriber);
 
-        (, , , , uint40 paidThrough, ) = opensub.subscriptions(subId1);
+        (,,,, uint40 paidThrough,) = opensub.subscriptions(subId1);
 
         // Schedule cancel at period end (Pattern A => NonRenewing immediately).
         vm.prank(subscriber);

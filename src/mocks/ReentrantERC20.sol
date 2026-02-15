@@ -17,7 +17,7 @@ contract ReentrantERC20 {
     event Approval(address indexed owner, address indexed spender, uint256 amount);
 
     // Reentrancy configuration
-    address public target;      // OpenSub contract
+    address public target; // OpenSub contract
     uint256 public planId;
     address public subscriber;
 
@@ -62,16 +62,15 @@ contract ReentrantERC20 {
             reentryAttempts += 1;
 
             // Query the currently-active subscriptionId for the configured (planId, subscriber).
-            (bool okSubId, bytes memory ret) = target.staticcall(
-                abi.encodeWithSignature("activeSubscriptionOf(uint256,address)", planId, subscriber)
-            );
+            (bool okSubId, bytes memory ret) =
+                target.staticcall(abi.encodeWithSignature("activeSubscriptionOf(uint256,address)", planId, subscriber));
             if (okSubId && ret.length >= 32) {
                 uint256 subscriptionId;
                 assembly {
                     subscriptionId := mload(add(ret, 32))
                 }
                 // Try to re-enter collect(). We expect this to fail due to nonReentrant.
-                (bool ok, ) = target.call(abi.encodeWithSignature("collect(uint256)", subscriptionId));
+                (bool ok,) = target.call(abi.encodeWithSignature("collect(uint256)", subscriptionId));
                 reentrySucceeded = reentrySucceeded || ok;
             }
         }

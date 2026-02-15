@@ -28,30 +28,30 @@ contract OpenSub is ReentrancyGuard {
     // -----------------------------
 
     struct Plan {
-        address merchant;        // payout address (merchant)
-        address token;           // ERC20 to charge (e.g., USDC)
-        uint256 price;           // amount charged each interval (token's smallest unit)
-        uint40 interval;         // seconds between charges
-        uint16 collectorFeeBps;  // fee paid to collector, in basis points of price (0..10_000)
-        bool active;             // can new subs be created / charges collected?
-        uint40 createdAt;        // timestamp
+        address merchant; // payout address (merchant)
+        address token; // ERC20 to charge (e.g., USDC)
+        uint256 price; // amount charged each interval (token's smallest unit)
+        uint40 interval; // seconds between charges
+        uint16 collectorFeeBps; // fee paid to collector, in basis points of price (0..10_000)
+        bool active; // can new subs be created / charges collected?
+        uint40 createdAt; // timestamp
     }
 
     enum SubscriptionStatus {
         None,
-        Active,        // auto-renew enabled
-        NonRenewing,   // auto-renew disabled; access valid until paidThrough
-        Cancelled      // ended immediately (access ended at/near cancel time)
+        Active, // auto-renew enabled
+        NonRenewing, // auto-renew disabled; access valid until paidThrough
+        Cancelled // ended immediately (access ended at/near cancel time)
+
     }
 
     struct Subscription {
         uint256 planId;
         address subscriber;
         SubscriptionStatus status;
-
-        uint40 startTime;      // when subscription started
-        uint40 paidThrough;    // end of currently-paid access period (also the next due time if Active)
-        uint40 lastChargedAt;  // last successful charge timestamp (0 if never)
+        uint40 startTime; // when subscription started
+        uint40 paidThrough; // end of currently-paid access period (also the next due time if Active)
+        uint40 lastChargedAt; // last successful charge timestamp (0 if never)
     }
 
     // -----------------------------
@@ -99,16 +99,18 @@ contract OpenSub is ReentrancyGuard {
     /// @notice Subscription ended immediately.
     event Cancelled(uint256 indexed subscriptionId, uint40 cancelledAt);
 
-    event Charged(
+    // paid to collector (if enabled)
+    // new paidThrough after this charge
+    event Charged( // total charged (plan.price)
         uint256 indexed subscriptionId,
         uint256 indexed planId,
         address indexed subscriber,
         address token,
-        uint256 amount,        // total charged (plan.price)
-        uint256 collectorFee,  // paid to collector (if enabled)
+        uint256 amount,
+        uint256 collectorFee,
         address collector,
         uint40 chargedAt,
-        uint40 paidThrough     // new paidThrough after this charge
+        uint40 paidThrough
     );
 
     // -----------------------------
@@ -135,12 +137,10 @@ contract OpenSub is ReentrancyGuard {
      * @param interval Seconds between charges (must be > 0).
      * @param collectorFeeBps Collector fee in bps (0..10_000). This fee is taken out of `price`.
      */
-    function createPlan(
-        address token,
-        uint256 price,
-        uint40 interval,
-        uint16 collectorFeeBps
-    ) external returns (uint256 planId) {
+    function createPlan(address token, uint256 price, uint40 interval, uint16 collectorFeeBps)
+        external
+        returns (uint256 planId)
+    {
         if (token == address(0) || price == 0 || interval == 0) revert InvalidParameters();
         // Basic sanity: ensure token is a contract and fee math cannot overflow.
         if (token.code.length == 0) revert InvalidParameters();
@@ -149,7 +149,8 @@ contract OpenSub is ReentrancyGuard {
 
         // Minimal ERC20 shape check (prevents bricked plans from non-ERC20 contracts).
         // Note: some exotic tokens may revert here; MVP targets "normal" ERC20s like stablecoins.
-        try IERC20(token).totalSupply() returns (uint256) {} catch {
+        try IERC20(token).totalSupply() returns (uint256) {}
+        catch {
             revert InvalidParameters();
         }
 
@@ -223,13 +224,7 @@ contract OpenSub is ReentrancyGuard {
         // Initial charge at subscribe time (collector fee disabled).
         _charge(subscriptionId, address(0), false);
 
-        emit Subscribed(
-            subscriptionId,
-            planId,
-            msg.sender,
-            nowTs,
-            subscriptions[subscriptionId].paidThrough
-        );
+        emit Subscribed(subscriptionId, planId, msg.sender, nowTs, subscriptions[subscriptionId].paidThrough);
     }
 
     /**

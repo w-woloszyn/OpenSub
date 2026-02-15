@@ -17,7 +17,7 @@ contract OpenSubCancelTest is OpenSubTestBase {
         vm.prank(subscriber);
         opensub.cancel(subId, false);
 
-        (, , OpenSub.SubscriptionStatus status, , uint40 paidThrough, ) = opensub.subscriptions(subId);
+        (,, OpenSub.SubscriptionStatus status,, uint40 paidThrough,) = opensub.subscriptions(subId);
 
         assertEq(uint256(status), uint256(OpenSub.SubscriptionStatus.Cancelled));
         assertEq(opensub.activeSubscriptionOf(planId, subscriber), 0);
@@ -33,12 +33,12 @@ contract OpenSubCancelTest is OpenSubTestBase {
         uint256 planId = _createPlan(0);
         uint256 subId = _subscribe(planId, subscriber);
 
-        (, , , , uint40 paidThrough, ) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThrough,) = opensub.subscriptions(subId);
 
         vm.prank(subscriber);
         opensub.cancel(subId, true);
 
-        (, , OpenSub.SubscriptionStatus status, , , ) = opensub.subscriptions(subId);
+        (,, OpenSub.SubscriptionStatus status,,,) = opensub.subscriptions(subId);
         assertEq(uint256(status), uint256(OpenSub.SubscriptionStatus.NonRenewing));
 
         // Before expiry: access true
@@ -57,7 +57,7 @@ contract OpenSubCancelTest is OpenSubTestBase {
         uint256 planId = _createPlan(0);
         uint256 subId = _subscribe(planId, subscriber);
 
-        (, , , , uint40 paidThrough, ) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThrough,) = opensub.subscriptions(subId);
 
         // Jump to due time.
         vm.warp(paidThrough);
@@ -65,7 +65,7 @@ contract OpenSubCancelTest is OpenSubTestBase {
         vm.prank(subscriber);
         opensub.cancel(subId, true);
 
-        (, , OpenSub.SubscriptionStatus status, , uint40 pt, ) = opensub.subscriptions(subId);
+        (,, OpenSub.SubscriptionStatus status,, uint40 pt,) = opensub.subscriptions(subId);
         assertEq(uint256(status), uint256(OpenSub.SubscriptionStatus.Cancelled));
         assertLe(uint256(pt), block.timestamp);
     }
@@ -74,7 +74,7 @@ contract OpenSubCancelTest is OpenSubTestBase {
         uint256 planId = _createPlan(0);
         uint256 subId = _subscribe(planId, subscriber);
 
-        (, , , , uint40 paidThrough, ) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThrough,) = opensub.subscriptions(subId);
 
         vm.prank(subscriber);
         opensub.cancel(subId, true);
@@ -84,7 +84,7 @@ contract OpenSubCancelTest is OpenSubTestBase {
         vm.prank(subscriber);
         opensub.unscheduleCancel(subId);
 
-        (, , OpenSub.SubscriptionStatus status, , , ) = opensub.subscriptions(subId);
+        (,, OpenSub.SubscriptionStatus status,,,) = opensub.subscriptions(subId);
         assertEq(uint256(status), uint256(OpenSub.SubscriptionStatus.Active));
     }
 
@@ -92,7 +92,7 @@ contract OpenSubCancelTest is OpenSubTestBase {
         uint256 planId = _createPlan(0);
         uint256 subId = _subscribe(planId, subscriber);
 
-        (, , , , uint40 paidThrough, ) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThrough,) = opensub.subscriptions(subId);
 
         vm.prank(subscriber);
         opensub.cancel(subId, true);

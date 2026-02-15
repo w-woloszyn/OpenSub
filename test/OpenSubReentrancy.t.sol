@@ -51,7 +51,7 @@ contract OpenSubReentrancyTest is Test {
         assertFalse(token.reentrySucceeded(), "reentry should not succeed (nonReentrant)");
 
         // Subscription exists.
-        (, address who, , , , ) = opensub.subscriptions(subId);
+        (, address who,,,,) = opensub.subscriptions(subId);
         assertEq(who, subscriber);
     }
 }

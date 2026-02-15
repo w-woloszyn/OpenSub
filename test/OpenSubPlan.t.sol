@@ -166,7 +166,7 @@ contract OpenSubPlanTest is OpenSubTestBase {
         vm.prank(subscriber);
         opensub.cancel(subId, false);
 
-        (, , OpenSub.SubscriptionStatus status, , , ) = opensub.subscriptions(subId);
+        (,, OpenSub.SubscriptionStatus status,,,) = opensub.subscriptions(subId);
         assertEq(uint256(status), uint256(OpenSub.SubscriptionStatus.Cancelled));
     }
 }

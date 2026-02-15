@@ -107,12 +107,7 @@ contract DeployDemo is Script {
         }
 
         _printPasteReadyFrontendConfig(
-            address(deployed),
-            openSubDeployBlock,
-            address(token),
-            tokenDeployBlock,
-            TOKEN_DECIMALS,
-            planId
+            address(deployed), openSubDeployBlock, address(token), tokenDeployBlock, TOKEN_DECIMALS, planId
         );
 
         console2.log("\nFrontend config tips:");
@@ -126,7 +121,7 @@ contract DeployDemo is Script {
         address openSub,
         uint256 openSubDeployBlock,
         address token,
-        uint256 /*tokenDeployBlock*/,
+        uint256, /*tokenDeployBlock*/
         uint8 tokenDecimals,
         uint256 planId
     ) internal view {

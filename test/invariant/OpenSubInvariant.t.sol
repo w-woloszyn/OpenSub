@@ -95,7 +95,8 @@ contract OpenSubInvariantTest is StdInvariant, Test {
 
             // isDue must match (status == Active && now >= paidThrough)
             bool due = opensub.isDue(subId);
-            bool expectedDue = (status == OpenSub.SubscriptionStatus.Active) && (block.timestamp >= uint256(paidThrough));
+            bool expectedDue =
+                (status == OpenSub.SubscriptionStatus.Active) && (block.timestamp >= uint256(paidThrough));
             assertEq(due, expectedDue, "isDue mismatch");
         }
     }
@@ -171,12 +172,12 @@ contract Handler is Test {
         uint256 subId = opensub.activeSubscriptionOf(planId, sub);
         if (subId == 0) return;
 
-        (, , OpenSub.SubscriptionStatus status, , uint40 paidThrough, ) = opensub.subscriptions(subId);
+        (,, OpenSub.SubscriptionStatus status,, uint40 paidThrough,) = opensub.subscriptions(subId);
         if (status != OpenSub.SubscriptionStatus.Active) return;
         if (block.timestamp < uint256(paidThrough)) return;
 
         // Skip if plan paused to avoid predictable reverts.
-        (,,,,, bool active, ) = opensub.plans(planId);
+        (,,,,, bool active,) = opensub.plans(planId);
         if (!active) return;
 
         address col = collectors[collectorIndex % collectors.length];

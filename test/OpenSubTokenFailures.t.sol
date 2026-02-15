@@ -41,7 +41,7 @@ contract OpenSubTokenFailuresTest is Test {
     }
 
     function _warpToDue() internal returns (uint40 dueAt) {
-        (, , , , dueAt, ) = opensub.subscriptions(subId);
+        (,,,, dueAt,) = opensub.subscriptions(subId);
         vm.warp(dueAt);
     }
 
@@ -49,7 +49,7 @@ contract OpenSubTokenFailuresTest is Test {
         uint40 dueAt = _warpToDue();
 
         // Snapshot state.
-        (, , , , uint40 paidThroughBefore, uint40 lastChargedBefore) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThroughBefore, uint40 lastChargedBefore) = opensub.subscriptions(subId);
         uint256 merchantBalBefore = token.balanceOf(merchant);
         uint256 collectorBalBefore = token.balanceOf(collector);
 
@@ -61,7 +61,7 @@ contract OpenSubTokenFailuresTest is Test {
         opensub.collect(subId);
 
         // State must be unchanged.
-        (, , , , uint40 paidThroughAfter, uint40 lastChargedAfter) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThroughAfter, uint40 lastChargedAfter) = opensub.subscriptions(subId);
         assertEq(paidThroughAfter, paidThroughBefore);
         assertEq(lastChargedAfter, lastChargedBefore);
 
@@ -75,7 +75,7 @@ contract OpenSubTokenFailuresTest is Test {
     function test_collect_reverts_and_stateUnchanged_when_transferFromReverts() public {
         _warpToDue();
 
-        (, , , , uint40 paidThroughBefore, uint40 lastChargedBefore) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThroughBefore, uint40 lastChargedBefore) = opensub.subscriptions(subId);
         uint256 merchantBalBefore = token.balanceOf(merchant);
         uint256 collectorBalBefore = token.balanceOf(collector);
 
@@ -85,7 +85,7 @@ contract OpenSubTokenFailuresTest is Test {
         vm.expectRevert(); // token reverts
         opensub.collect(subId);
 
-        (, , , , uint40 paidThroughAfter, uint40 lastChargedAfter) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThroughAfter, uint40 lastChargedAfter) = opensub.subscriptions(subId);
         assertEq(paidThroughAfter, paidThroughBefore);
         assertEq(lastChargedAfter, lastChargedBefore);
 

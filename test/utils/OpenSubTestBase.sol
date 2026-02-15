@@ -27,7 +27,7 @@ abstract contract OpenSubTestBase is Test {
         token = new MockERC20("MockUSD", "mUSD", 6);
 
         // Fund subscribers generously.
-        token.mint(subscriber, 1_000_000_000);  // 1000.000000
+        token.mint(subscriber, 1_000_000_000); // 1000.000000
         token.mint(subscriber2, 1_000_000_000); // 1000.000000
 
         vm.prank(subscriber);
@@ -48,7 +48,7 @@ abstract contract OpenSubTestBase is Test {
     }
 
     function _warpToDue(uint256 subId) internal returns (uint40 dueAt) {
-        (, , , , dueAt, ) = opensub.subscriptions(subId);
+        (,,,, dueAt,) = opensub.subscriptions(subId);
         vm.warp(dueAt);
     }
 }

@@ -66,7 +66,7 @@ contract OpenSubSmokeTest is Test {
     function test_collect_paysCollector_and_advancesPaidThrough() public {
         uint256 subId = _subscribe();
 
-        (, , , , uint40 paidThroughBefore, ) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThroughBefore,) = opensub.subscriptions(subId);
 
         // Renew exactly when due.
         vm.warp(paidThroughBefore);
@@ -83,20 +83,20 @@ contract OpenSubSmokeTest is Test {
         assertEq(token.balanceOf(collector), collectorFee);
 
         // paidThrough advanced and should be in the future relative to `block.timestamp`.
-        (, , , , uint40 paidThroughAfter, ) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThroughAfter,) = opensub.subscriptions(subId);
         assertGt(paidThroughAfter, uint40(block.timestamp));
     }
 
     function test_cancelAtPeriodEnd_patternA_disablesRenewal_but_keepsAccess() public {
         uint256 subId = _subscribe();
 
-        (, , , , uint40 paidThrough, ) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThrough,) = opensub.subscriptions(subId);
 
         // Cancel at period end (Pattern A: set NonRenewing immediately).
         vm.prank(subscriber);
         opensub.cancel(subId, true);
 
-        (, , OpenSub.SubscriptionStatus status, , , ) = opensub.subscriptions(subId);
+        (,, OpenSub.SubscriptionStatus status,,,) = opensub.subscriptions(subId);
         assertEq(uint256(status), uint256(OpenSub.SubscriptionStatus.NonRenewing));
 
         // Still has access before paidThrough.
@@ -116,7 +116,7 @@ contract OpenSubSmokeTest is Test {
     function test_lateRenewal_restartsFromNow() public {
         uint256 subId = _subscribe();
 
-        (, , , , uint40 paidThrough, ) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThrough,) = opensub.subscriptions(subId);
 
         // Warp to a time after the subscription is overdue.
         uint256 lateTs = uint256(paidThrough) + 7 days;
@@ -125,7 +125,7 @@ contract OpenSubSmokeTest is Test {
         vm.prank(collector);
         opensub.collect(subId);
 
-        (, , , , uint40 newPaidThrough, ) = opensub.subscriptions(subId);
+        (,,,, uint40 newPaidThrough,) = opensub.subscriptions(subId);
         assertEq(uint256(newPaidThrough), lateTs + uint256(INTERVAL));
     }
 }

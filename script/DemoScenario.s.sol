@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
+import "forge-std/Vm.sol";
 
 import {OpenSub} from "src/OpenSub.sol";
 import {MockERC20} from "src/mocks/MockERC20.sol";
@@ -39,29 +40,28 @@ contract DemoScenario is Script {
     // Allowance policy default
     uint256 internal constant APPROVAL_PERIODS_DEFAULT = 12;
 
+    struct Config {
+        uint256 planPrice;
+        uint40 planInterval;
+        uint16 planFeeBps;
+        uint256 mintToMerchant;
+        uint256 mintToSubscriber;
+        uint256 approvalPeriods;
+    }
+
+    struct SubscriberInfo {
+        address addr;
+        uint256 pk;
+    }
+
     function run() external {
         console2.log("=== DemoScenario ===");
         console2.log("chainid:", vm.toString(block.chainid));
 
-        uint256 planPrice = _envOrUint("PLAN_PRICE", PLAN_PRICE_DEFAULT);
-        uint40 planInterval = uint40(_envOrUint("PLAN_INTERVAL_SECONDS", uint256(PLAN_INTERVAL_DEFAULT)));
-        uint16 planFeeBps = uint16(_envOrUint("PLAN_COLLECTOR_FEE_BPS", uint256(PLAN_COLLECTOR_FEE_BPS_DEFAULT)));
+        Config memory cfg = _loadConfig();
+        if (cfg.approvalPeriods == 0) cfg.approvalPeriods = 1;
 
-        uint256 mintToMerchant = _envOrUint("MINT_TO_MERCHANT", MINT_TO_MERCHANT_DEFAULT);
-        uint256 mintToSubscriber = _envOrUint("MINT_TO_SUBSCRIBER", MINT_TO_SUBSCRIBER_DEFAULT);
-
-        uint256 approvalPeriods = _envOrUint("APPROVAL_PERIODS", APPROVAL_PERIODS_DEFAULT);
-        if (approvalPeriods == 0) approvalPeriods = 1;
-
-        // Resolve subscriber
-        address subscriber = _readOptionalAddress("SUBSCRIBER");
-        uint256 subscriberPk = 0;
-        if (subscriber == address(0)) {
-            subscriberPk = _readOptionalUint("SUBSCRIBER_PK");
-            if (subscriberPk != 0) {
-                subscriber = vm.addr(subscriberPk);
-            }
-        }
+        SubscriberInfo memory sub = _resolveSubscriber();
 
         // 1) Deploy contracts
         vm.startBroadcast();
@@ -74,19 +74,19 @@ contract DemoScenario is Script {
 
         // 2) Create plan from merchant (broadcaster)
         vm.startBroadcast();
-        uint256 planId = opensub.createPlan(address(token), planPrice, planInterval, planFeeBps);
+        uint256 planId = opensub.createPlan(address(token), cfg.planPrice, cfg.planInterval, cfg.planFeeBps);
         vm.stopBroadcast();
 
         (address merchant,,,,,,) = opensub.plans(planId);
 
         // 3) Mint demo funds
         vm.startBroadcast();
-        token.mint(merchant, mintToMerchant);
+        token.mint(merchant, cfg.mintToMerchant);
         vm.stopBroadcast();
 
-        if (subscriber != address(0)) {
+        if (sub.addr != address(0)) {
             vm.startBroadcast();
-            token.mint(subscriber, mintToSubscriber);
+            token.mint(sub.addr, cfg.mintToSubscriber);
             vm.stopBroadcast();
         }
 
@@ -96,32 +96,34 @@ contract DemoScenario is Script {
         console2.log("Token deploy block (lower bound):", tokenDeployBlock);
         console2.log("OpenSub deploy block (lower bound):", openSubDeployBlock);
         console2.log("PlanId:", planId);
-        console2.log("Plan price:", planPrice);
-        console2.log("Plan interval (seconds):", uint256(planInterval));
-        console2.log("Plan collector fee (bps):", uint256(planFeeBps));
+        console2.log("Plan price:", cfg.planPrice);
+        console2.log("Plan interval (seconds):", uint256(cfg.planInterval));
+        console2.log("Plan collector fee (bps):", uint256(cfg.planFeeBps));
         console2.log("Merchant:", merchant);
 
-        if (subscriber != address(0)) {
-            console2.log("Subscriber:", subscriber);
+        if (sub.addr != address(0)) {
+            console2.log("Subscriber:", sub.addr);
         } else {
             console2.log("Subscriber: (not provided; set SUBSCRIBER or SUBSCRIBER_PK to run approve+subscribe)");
         }
 
-        _printPasteReadyFrontendConfig(address(opensub), openSubDeployBlock, address(token), tokenDeployBlock, TOKEN_DECIMALS, planId);
+        _printPasteReadyFrontendConfig(
+            address(opensub), openSubDeployBlock, address(token), tokenDeployBlock, TOKEN_DECIMALS, planId
+        );
 
         // 4) Optionally approve + subscribe
-        if (subscriberPk == 0) {
+        if (sub.pk == 0) {
             console2.log("\nNOTE: SUBSCRIBER_PK not set; skipping approve+subscribe step.");
             console2.log("To seed a subscription, export SUBSCRIBER_PK=<pk> (funded with gas).\n");
             return;
         }
 
-        uint256 approveAmount = planPrice * approvalPeriods;
+        uint256 approveAmount = cfg.planPrice * cfg.approvalPeriods;
         console2.log("\n--- Subscriber approve + subscribe ---");
-        console2.log("Approval periods:", approvalPeriods);
+        console2.log("Approval periods:", cfg.approvalPeriods);
         console2.log("Approve amount:", approveAmount);
 
-        vm.startBroadcast(subscriberPk);
+        vm.startBroadcast(sub.pk);
         token.approve(address(opensub), approveAmount);
         uint256 subId = opensub.subscribe(planId);
         vm.stopBroadcast();
@@ -129,37 +131,7 @@ contract DemoScenario is Script {
         console2.log("Subscribed. subscriptionId:", subId);
 
         // 5) Optionally renew on Anvil (requires FFI to call cast rpc)
-        bool doRenewal = _readOptionalBool("DO_RENEWAL", false);
-        bool useFfi = _readOptionalBool("USE_FFI", false);
-
-        if (doRenewal) {
-            if (block.chainid != 31337) {
-                console2.log("NOTE: Renewal requested but not on local Anvil; skipping (cannot warp time on public networks).\n");
-                return;
-            }
-            if (!useFfi) {
-                console2.log("NOTE: renewal is enabled but USE_FFI is not set.");
-                console2.log("Set USE_FFI=1 and run with --ffi to allow time travel on Anvil.\n");
-                return;
-            }
-
-            // Determine when due
-            (, , , , uint40 paidThrough, ) = opensub.subscriptions(subId);
-            uint256 nowTs = block.timestamp;
-            if (nowTs < uint256(paidThrough)) {
-                uint256 secondsForward = uint256(paidThrough) - nowTs;
-                console2.log("Advancing time by seconds:", secondsForward);
-                _ffiIncreaseTime(secondsForward);
-                _ffiMine();
-            }
-
-            console2.log("Calling collect() to renew...");
-            vm.startBroadcast(subscriberPk);
-            opensub.collect(subId);
-            vm.stopBroadcast();
-
-            console2.log("Renewal complete.\n");
-        }
+        _maybeRenew(opensub, subId, sub.pk, cfg.planInterval);
 
         console2.log("Done.");
     }
@@ -168,7 +140,7 @@ contract DemoScenario is Script {
         address openSub,
         uint256 openSubDeployBlock,
         address token,
-        uint256 /*tokenDeployBlock*/,
+        uint256, /*tokenDeployBlock*/
         uint8 tokenDecimals,
         uint256 planId
     ) internal view {
@@ -212,6 +184,75 @@ contract DemoScenario is Script {
         return ("baseTestnet", "base-sepolia");
     }
 
+    function _loadConfig() internal view returns (Config memory cfg) {
+        cfg.planPrice = _envOrUint("PLAN_PRICE", PLAN_PRICE_DEFAULT);
+        cfg.planInterval = uint40(_envOrUint("PLAN_INTERVAL_SECONDS", uint256(PLAN_INTERVAL_DEFAULT)));
+        cfg.planFeeBps = uint16(_envOrUint("PLAN_COLLECTOR_FEE_BPS", uint256(PLAN_COLLECTOR_FEE_BPS_DEFAULT)));
+        cfg.mintToMerchant = _envOrUint("MINT_TO_MERCHANT", MINT_TO_MERCHANT_DEFAULT);
+        cfg.mintToSubscriber = _envOrUint("MINT_TO_SUBSCRIBER", MINT_TO_SUBSCRIBER_DEFAULT);
+        cfg.approvalPeriods = _envOrUint("APPROVAL_PERIODS", APPROVAL_PERIODS_DEFAULT);
+    }
+
+    function _resolveSubscriber() internal view returns (SubscriberInfo memory sub) {
+        sub.addr = _readOptionalAddress("SUBSCRIBER");
+        sub.pk = _readOptionalUint("SUBSCRIBER_PK");
+        if (sub.addr == address(0) && sub.pk != 0) {
+            sub.addr = vm.addr(sub.pk);
+        }
+    }
+
+    function _maybeRenew(OpenSub opensub, uint256 subId, uint256 subscriberPk, uint40 planInterval) internal {
+        bool doRenewal = _readOptionalBool("DO_RENEWAL", false);
+        if (!doRenewal) return;
+
+        bool useFfi = _readOptionalBool("USE_FFI", false);
+        if (!useFfi) {
+            console2.log("NOTE: renewal is enabled but USE_FFI is not set.");
+            console2.log("Set USE_FFI=1 and run with --ffi to allow time travel on Anvil.\n");
+            return;
+        }
+
+        if (vm.isContext(VmSafe.ForgeContext.ScriptBroadcast)) {
+            console2.log("NOTE: Auto-renew is skipped during --broadcast to avoid Foundry simulation issues.");
+            console2.log("Run this manually after the script completes:");
+            console2.log(string.concat("  cast rpc evm_increaseTime ", vm.toString(uint256(planInterval) + 1)));
+            console2.log("  cast rpc evm_mine");
+            console2.log(
+                string.concat(
+                    "  cast send ",
+                    vm.toString(address(opensub)),
+                    " \"collect(uint256)\" ",
+                    vm.toString(subId),
+                    " --private-key <COLLECTOR_OR_SUBSCRIBER_PK> --rpc-url <RPC_URL>"
+                )
+            );
+            console2.log("");
+            return;
+        }
+
+        if (block.chainid != 31337) {
+            console2.log(
+                "NOTE: Renewal requested but not on local Anvil; skipping (cannot warp time on public networks).\n"
+            );
+            return;
+        }
+
+        // Determine when due (simulation only).
+        (,,,, uint40 paidThrough,) = opensub.subscriptions(subId);
+        uint256 nowTs = block.timestamp;
+        if (nowTs <= uint256(paidThrough)) {
+            uint256 secondsForward = uint256(paidThrough) - nowTs + 1;
+            console2.log("Advancing time by seconds:", secondsForward);
+            vm.warp(nowTs + secondsForward);
+        }
+
+        console2.log("Calling collect() to renew...");
+        vm.startBroadcast(subscriberPk);
+        opensub.collect(subId);
+        vm.stopBroadcast();
+        console2.log("Renewal complete.\n");
+    }
+
     // --- Env helpers ---
 
     function _readOptionalAddress(string memory key) internal view returns (address addr) {
@@ -250,23 +291,5 @@ contract DemoScenario is Script {
                 v = defaultVal;
             }
         }
-    }
-
-    function _ffiIncreaseTime(uint256 secondsForward) internal {
-        // Requires: --ffi and ETH_RPC_URL env var.
-        string[] memory cmd = new string[](4);
-        cmd[0] = "cast";
-        cmd[1] = "rpc";
-        cmd[2] = "evm_increaseTime";
-        cmd[3] = vm.toString(secondsForward);
-        vm.ffi(cmd);
-    }
-
-    function _ffiMine() internal {
-        string[] memory cmd = new string[](3);
-        cmd[0] = "cast";
-        cmd[1] = "rpc";
-        cmd[2] = "evm_mine";
-        vm.ffi(cmd);
     }
 }

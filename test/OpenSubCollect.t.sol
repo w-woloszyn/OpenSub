@@ -11,7 +11,7 @@ contract OpenSubCollectTest is OpenSubTestBase {
         uint256 planId = _createPlan(500); // 5%
         uint256 subId = _subscribe(planId, subscriber);
 
-        (, , , , uint40 paidThrough, ) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThrough,) = opensub.subscriptions(subId);
 
         // Still before due time.
         vm.prank(collector);
@@ -38,7 +38,7 @@ contract OpenSubCollectTest is OpenSubTestBase {
         assertEq(token.balanceOf(collector), collectorFee);
 
         // Subscription advanced.
-        (, , , , uint40 paidThroughAfter, uint40 lastChargedAtAfter) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThroughAfter, uint40 lastChargedAtAfter) = opensub.subscriptions(subId);
         assertEq(uint256(lastChargedAtAfter), uint256(dueAt));
         assertEq(uint256(paidThroughAfter), uint256(dueAt) + uint256(INTERVAL));
     }
@@ -71,7 +71,7 @@ contract OpenSubCollectTest is OpenSubTestBase {
         vm.prank(collector);
         opensub.collect(subId);
 
-        (, , , , uint40 paidThroughAfter, uint40 lastChargedAtAfter) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThroughAfter, uint40 lastChargedAtAfter) = opensub.subscriptions(subId);
         assertEq(uint256(lastChargedAtAfter), uint256(dueAt));
         assertEq(uint256(paidThroughAfter), uint256(dueAt) + uint256(INTERVAL));
     }
@@ -80,7 +80,7 @@ contract OpenSubCollectTest is OpenSubTestBase {
         uint256 planId = _createPlan(0);
         uint256 subId = _subscribe(planId, subscriber);
 
-        (, , , , uint40 paidThrough, ) = opensub.subscriptions(subId);
+        (,,,, uint40 paidThrough,) = opensub.subscriptions(subId);
 
         uint256 lateTs = uint256(paidThrough) + 7 days;
         vm.warp(lateTs);
@@ -88,7 +88,7 @@ contract OpenSubCollectTest is OpenSubTestBase {
         vm.prank(collector);
         opensub.collect(subId);
 
-        (, , , , uint40 newPaidThrough, uint40 lastChargedAt) = opensub.subscriptions(subId);
+        (,,,, uint40 newPaidThrough, uint40 lastChargedAt) = opensub.subscriptions(subId);
         assertEq(uint256(lastChargedAt), lateTs);
         assertEq(uint256(newPaidThrough), lateTs + uint256(INTERVAL));
     }
