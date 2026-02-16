@@ -23,7 +23,7 @@ else:
 
 out_path = os.path.abspath(out_path)
 
-exclude_dirs = {".git", "out", "cache"}
+exclude_dirs = {".git", "out", "cache", "broadcast", ".secrets", "node_modules"}
 exclude_files = {
     os.path.basename(out_path),
     ".DS_Store",
