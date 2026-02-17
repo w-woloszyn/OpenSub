@@ -78,7 +78,12 @@ Key evidence:
 - RPC selected: see `.secrets/base_sepolia_rpc.txt`
 - Chain ID check: `84532` — `.secrets/base_sepolia_chainid.txt`
 - Keeper dry-run: PASS (no tx) — `.secrets/base_sepolia_dryrun.log`
-- Live testnet txs were NOT executed (RUN_BASE_SEPOLIA_LIVE not set).
+
+## Base Sepolia Live Run (Explicitly Enabled)
+- RUN_BASE_SEPOLIA_LIVE=1 was set and keeper executed once with `--max-txs-per-cycle=1`.
+- Keeper state updated: `.secrets/base-sepolia-keeper-state.json`
+- Keeper log: `.secrets/base_sepolia_live.log` (empty; no txs sent).
+- Subscription 1 status at time of run: `isDue == false`, `hasAccess == true`. No collect tx was broadcast.
 
 ## Notes / Recommendations
 - Scenario 8 relied on the `--force-pending` test hook to simulate delayed receipts on Anvil; consider re-validating on a network with naturally delayed receipts when convenient.
