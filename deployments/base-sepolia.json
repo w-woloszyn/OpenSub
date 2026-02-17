@@ -18,5 +18,6 @@
     "approve": "0xc6de8f7bf1c89f3cd9ba3c6a2c8c18aaf54ffb67169eabc6ff5414878c57a871",
     "subscribe": "0x15050b5d91a530c7841e6ab5921e6be3f38d1cddf2426fe770610e23c14c2ff5",
     "collect": "0xa9d81f9e393342b35ff6dc3a6423195069ebfde065d38faacc062c3db2532881"
-  }
+  },
+  "rpcEnvVar": "BASE_SEPOLIA_RPC_URL"
 }

@@ -12,6 +12,7 @@ This repo is organized as a set of milestones:
 - **Milestone 2 (protocol implementation):** `src/OpenSub.sol`
 - **Milestone 3 (Foundry tests: unit + fuzz + invariants):** `test/` + `docs/SPEC.md` + `docs/THREAT_MODEL.md`
 - **Milestone 4 (frontend handoff / demo deploy UX):** `docs/FRONTEND_HANDOFF.md` + `frontend/` + `script/DeployDemo.s.sol`
+- **Milestone 5 (keeper bot / automation):** `keeper-rs/` (Rust)
 
 ⚠️ Not audited. Use at your own risk.
 
@@ -161,6 +162,33 @@ Frontend handoff docs + ABI/config templates live in:
 
 ---
 
+## Keeper bot (Milestone 5)
+
+Milestone 5 adds a backend **keeper** that scans `Subscribed` logs and calls `collect()` when subscriptions are due.
+
+Milestone 5.1 hardens the keeper with:
+- allowance/balance/plan-active **prechecks** (no gas wasted on obvious reverts)
+- optional `eth_call` simulation of `collect()` (enabled by default)
+- persisted per-subscription **backoff** (so paused plans / unpaid users don’t get spammed)
+
+See:
+- `docs/MILESTONE5.md`
+- `docs/MILESTONE5_1.md`
+- `keeper-rs/README.md`
+
+Quick run (Base Sepolia):
+
+```bash
+export KEEPER_PRIVATE_KEY="<funded EOA key>"
+export OPENSUB_KEEPER_RPC_URL="https://sepolia.base.org"
+
+cargo run --release --manifest-path keeper-rs/Cargo.toml -- \
+  --deployment deployments/base-sepolia.json \
+  --poll-seconds 30 \
+  --confirmations 2 \
+  --log-chunk 2000
+```
+
 ## Remappings
 
 `foundry.toml` includes:
@@ -194,3 +222,35 @@ Mocks in `src/mocks/`:
 - `ReentrantERC20.sol` (attempts to re-enter OpenSub during transferFrom)
 - `ReturnsFalseERC20.sol` (always returns false)
 - `RevertingERC20.sol` (always reverts)
+
+## One-command local demo (Anvil → DemoScenario → keeper)
+
+Run:
+
+```bash
+make demo-local
+```
+
+This will:
+- start a local Anvil node
+- deploy + seed a subscription via `DemoScenario`
+- warp time so it becomes due
+- run the Rust keeper once so it calls `collect()` and emits a renewal `Charged` event
+
+Artifacts are written under `./.secrets/` (gitignored).
+
+## Keeper self-test (Milestone 5.1)
+
+Run:
+
+```bash
+make keeper-self-test
+```
+
+This is an automated proof that the keeper:
+
+1) **Does not** send a reverting `collect()` tx when allowance is insufficient (it records backoff instead).
+2) Retries after backoff and successfully collects once allowance is restored.
+
+All temporary artifacts are written under `./.secrets/` (gitignored).
+

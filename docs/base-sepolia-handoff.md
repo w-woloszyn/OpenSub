@@ -4,7 +4,7 @@ Date: 2026-02-16
 
 ## Network
 - Chain: Base Sepolia (chainId 84532)
-- RPC: https://sepolia.base.org
+- RPC: https://sepolia.base.org  (rate-limited; set BASE_SEPOLIA_RPC_URL for a dedicated provider)
 - Explorer: https://sepolia-explorer.base.org
 
 ## Core Addresses
@@ -39,7 +39,6 @@ export const addresses = {
     chainName: "base-sepolia",
     openSub: "0x27eD037baB2A178dCDD600Abb78E3C6165C3B57c",
     deployBlock: 37718658n,
-    defaultPlanId: 1n,
   },
 } as const;
 ```

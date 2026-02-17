@@ -7,7 +7,20 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_ARG="${1:-$ROOT_DIR/opensub.zip}"
 
-python - <<'PY' "$ROOT_DIR" "$OUTPUT_ARG"
+# Pick a python interpreter (some systems only have python3).
+PYTHON_BIN="${PYTHON_BIN:-}"
+if [[ -z "${PYTHON_BIN}" ]]; then
+  if command -v python >/dev/null 2>&1; then
+    PYTHON_BIN=python
+  elif command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN=python3
+  else
+    echo "python/python3 not found. Please install Python to run this script." >&2
+    exit 1
+  fi
+fi
+
+"${PYTHON_BIN}" - <<'PY' "$ROOT_DIR" "$OUTPUT_ARG"
 import os
 import sys
 import zipfile
@@ -23,7 +36,8 @@ else:
 
 out_path = os.path.abspath(out_path)
 
-exclude_dirs = {".git", "out", "cache", "broadcast", ".secrets", "node_modules"}
+exclude_dirs = {".git", "out", "cache", "broadcast", ".secrets", "node_modules", "target"}
+exclude_prefixes = {"keeper-rs/state"}
 exclude_files = {
     os.path.basename(out_path),
     ".DS_Store",
@@ -41,6 +55,10 @@ def is_excluded_file(name: str) -> bool:
 with zipfile.ZipFile(out_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
     for dirpath, dirnames, filenames in os.walk(root):
         rel_dir = os.path.relpath(dirpath, root)
+        rel_dir_slash = rel_dir.replace(os.sep, "/")
+        if any(rel_dir_slash == p or rel_dir_slash.startswith(p + "/") for p in exclude_prefixes):
+            dirnames[:] = []
+            continue
         parts = [] if rel_dir == "." else rel_dir.split(os.sep)
         if any(part in exclude_dirs for part in parts):
             dirnames[:] = []
