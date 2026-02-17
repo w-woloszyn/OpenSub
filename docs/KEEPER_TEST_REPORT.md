@@ -82,8 +82,12 @@ Key evidence:
 ## Base Sepolia Live Run (Explicitly Enabled)
 - RUN_BASE_SEPOLIA_LIVE=1 was set and keeper executed once with `--max-txs-per-cycle=1`.
 - Keeper state updated: `.secrets/base-sepolia-keeper-state.json`
-- Keeper log: `.secrets/base_sepolia_live.log` (empty; no txs sent).
-- Subscription 1 status at time of run: `isDue == false`, `hasAccess == true`. No collect tx was broadcast.
+- Keeper log: `.secrets/base_sepolia_live_collect.log` (empty; tx confirmed via chain data below).
+- Subscription 1 became due and was collected by the keeper:
+  - tx: `0x6fd644dac9a6d977ddbf4b227cdd9bc814f9bb87643212ab951e33ee02ccb121`
+  - block: `37790894`
+  - from: keeper `0x57bb65D8Fcd164194cAfd582e75DFa6debad6929`
+  - event: `Charged` emitted (log shows collector = keeper)
 
 ## Notes / Recommendations
 - Scenario 8 relied on the `--force-pending` test hook to simulate delayed receipts on Anvil; consider re-validating on a network with naturally delayed receipts when convenient.
