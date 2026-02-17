@@ -62,6 +62,7 @@ pub async fn collect_due<M: Middleware + 'static>(
     gas_limit: Option<u64>,
     max_txs_per_cycle: usize,
     tx_timeout: Duration,
+    force_pending: bool,
     simulate: bool,
     dry_run: bool,
 ) -> Result<CollectOutcome> {
@@ -338,6 +339,20 @@ pub async fn collect_due<M: Middleware + 'static>(
                 stats.sent.fetch_add(1, Ordering::Relaxed);
 
                 let tx_hash = pending.tx_hash();
+
+                if force_pending {
+                    stats.pending.fetch_add(1, Ordering::Relaxed);
+                    tracing::info!(
+                        subscription_id = id,
+                        tx = ?tx_hash,
+                        "force-pending enabled; skipping receipt wait"
+                    );
+                    pending_out
+                        .lock()
+                        .await
+                        .push(PendingTx { subscription_id: id, tx_hash });
+                    return;
+                }
 
                 // Wait for receipt.
                 let receipt_res = tokio::time::timeout(tx_timeout, pending).await;

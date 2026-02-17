@@ -124,6 +124,10 @@ struct Args {
     #[arg(long, default_value_t = 900)]
     pending_ttl_seconds: u64,
 
+    /// Test hook: mark sent txs as pending immediately (skip receipt wait).
+    #[arg(long)]
+    force_pending: bool,
+
     /// Milestone 5.1: base backoff (seconds) for retryable failures.
     #[arg(long, default_value_t = 300)]
     backoff_base_seconds: u64,
@@ -197,6 +201,7 @@ async fn main() -> Result<()> {
         args.plan_inactive_backoff_seconds,
         args.rpc_error_backoff_seconds,
         args.jitter_seconds,
+        args.force_pending,
         !args.no_simulate,
         args.once,
         args.dry_run,
@@ -279,6 +284,7 @@ async fn main() -> Result<()> {
         dry_run = cfg.dry_run,
         simulate = cfg.simulate,
         ignore_backoff,
+        force_pending = cfg.force_pending,
         once = cfg.once,
         "keeper starting"
     );
@@ -414,6 +420,7 @@ async fn main() -> Result<()> {
                 cfg.gas_limit,
                 cfg.max_txs_per_cycle,
                 cfg.tx_timeout,
+                cfg.force_pending,
                 cfg.simulate,
                 cfg.dry_run,
             )

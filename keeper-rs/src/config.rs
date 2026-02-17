@@ -45,6 +45,9 @@ pub struct KeeperConfig {
     /// Milestone 5.1: deterministic jitter window to avoid thundering herd.
     pub jitter: Duration,
 
+    /// Test hook: mark sent txs as pending immediately (skip receipt wait).
+    pub force_pending: bool,
+
     /// Whether to simulate collect() via eth_call before sending a transaction.
     ///
     /// This avoids wasting gas on transactions that would revert.
@@ -74,6 +77,7 @@ impl KeeperConfig {
         plan_inactive_backoff_seconds: u64,
         rpc_error_backoff_seconds: u64,
         jitter_seconds: u64,
+        force_pending: bool,
         simulate: bool,
         once: bool,
         dry_run: bool,
@@ -154,6 +158,7 @@ impl KeeperConfig {
             ),
             rpc_error_backoff: Duration::from_secs(rpc_error_backoff_seconds.max(1)),
             jitter: Duration::from_secs(jitter_seconds),
+            force_pending,
             simulate,
             once,
             dry_run,
