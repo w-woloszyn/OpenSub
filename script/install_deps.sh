@@ -40,6 +40,19 @@ fi
 
 echo "Installing/updating deps in ./lib ..."
 
+# Pick a python interpreter (some systems only have python3).
+PYTHON_BIN="${PYTHON_BIN:-}"
+if [[ -z "${PYTHON_BIN}" ]]; then
+  if command -v python >/dev/null 2>&1; then
+    PYTHON_BIN=python
+  elif command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN=python3
+  else
+    echo "python/python3 not found. Please install Python to run this script." >&2
+    exit 1
+  fi
+fi
+
 # Remove any partial vendoring (common when sharing zip snapshots).
 rm -rf "$OZ_ROOT" "$FORGE_ROOT"
 
@@ -51,7 +64,15 @@ forge install OpenZeppelin/openzeppelin-contracts --no-git --no-commit
 # don't recognize (e.g., "osaka"). This causes forge to panic when it scans
 # dependency configs. Strip the setting since we don't run OZ's own tests here.
 if [[ -f "$OZ_ROOT/foundry.toml" ]]; then
-  sed -i '/^evm_version *=/d' "$OZ_ROOT/foundry.toml"
+  "${PYTHON_BIN}" - <<'PY' "$OZ_ROOT/foundry.toml"
+import re, sys, pathlib
+p = pathlib.Path(sys.argv[1])
+raw = p.read_text()
+lines = raw.splitlines()
+kept = [ln for ln in lines if not re.match(r"^\s*evm_version\s*=", ln)]
+out = "\n".join(kept).rstrip("\n") + "\n"
+p.write_text(out)
+PY
 fi
 
 forge install foundry-rs/forge-std --no-git --no-commit
