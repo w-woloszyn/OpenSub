@@ -4,7 +4,7 @@ Date: 2026-02-17
 
 ## Repo Context
 - Branch: `keeper-regression-20260217-115145`
-- HEAD: `feb7cb5a3d1434ce6721d40212f9478c70b2c6fa`
+- Tested commit: `66e5557f8237b8b85c22ace0c2cc9b37aa961525`
 
 ## Tool Versions
 ```
