@@ -12,6 +12,8 @@ use config::KeeperConfig;
 use deployments::DeploymentArtifact;
 use ethers::middleware::NonceManagerMiddleware;
 use ethers::prelude::{Http, LocalWallet, Provider, SignerMiddleware};
+use ethers::providers::Middleware;
+use ethers::signers::Signer;
 use eyre::{eyre, Result};
 use opensub::OpenSub;
 use state::{FailureKind, KeeperState, ReconcileOutcome};
@@ -54,7 +56,7 @@ fn compute_backoff_seconds(
     let base = base.min(max);
 
     // base * 2^(consecutive_failures - 1), then clamped to max.
-    let exp = consecutive_failures.saturating_sub(1).min(63) as u32;
+    let exp = consecutive_failures.saturating_sub(1).min(63);
     let mut backoff = base.saturating_mul(1u64 << exp).min(max);
 
     // Deterministic jitter in [0, jitter_max) to reduce thundering herd,
@@ -257,6 +259,7 @@ async fn main() -> Result<()> {
         .create(true)
         .read(true)
         .write(true)
+        .truncate(false)
         .open(&lock_path)
         .map_err(|e| eyre!("failed to open lock file {}: {e}", lock_path.display()))?;
     lock_file.try_lock_exclusive().map_err(|e| {

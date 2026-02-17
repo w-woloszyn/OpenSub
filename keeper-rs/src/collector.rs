@@ -5,6 +5,7 @@ use ethers::providers::Middleware;
 use ethers::types::{Address, U256, U64};
 use eyre::Result;
 use futures::stream;
+use futures::StreamExt;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
@@ -39,6 +40,7 @@ pub struct CollectOutcome {
 }
 
 #[derive(Debug, Default, Clone)]
+#[allow(dead_code)]
 pub struct CollectStats {
     pub checked: usize,
     pub due: usize,
@@ -50,6 +52,7 @@ pub struct CollectStats {
     pub pending: usize,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn collect_due<M: Middleware + 'static>(
     opensub: OpenSub<M>,
     opensub_address: Address,
@@ -79,13 +82,11 @@ pub async fn collect_due<M: Middleware + 'static>(
 
     let opensub = Arc::new(opensub);
     let client = client;
-    let opensub_address = opensub_address;
 
     stream::iter(subscription_ids)
         .for_each_concurrent(max_concurrency, |id| {
             let opensub = opensub.clone();
             let client = client.clone();
-            let opensub_address = opensub_address;
             let stats = stats.clone();
             let remaining_budget = remaining_budget.clone();
             let pending_out = pending_out.clone();

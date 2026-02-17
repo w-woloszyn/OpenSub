@@ -55,6 +55,7 @@ pub struct KeeperConfig {
 }
 
 impl KeeperConfig {
+    #[allow(clippy::too_many_arguments)]
     pub fn from_cli_and_deployment(
         deployment: &DeploymentArtifact,
         rpc_override: Option<String>,

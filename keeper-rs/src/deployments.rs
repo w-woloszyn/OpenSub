@@ -19,8 +19,10 @@ pub struct DeploymentArtifact {
     pub start_block: u64,
 
     // Optional conveniences (not required by the keeper)
+    #[allow(dead_code)]
     #[serde(default)]
     pub plan_id: Option<u64>,
+    #[allow(dead_code)]
     #[serde(default)]
     pub token: Option<String>,
 }

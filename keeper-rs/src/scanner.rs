@@ -1,6 +1,7 @@
 use crate::state::KeeperState;
 use ethers::providers::Middleware;
 use ethers::types::{Address, BlockNumber, Filter, H256, U256};
+use ethers::utils::keccak256;
 use eyre::{eyre, Result};
 use std::cmp;
 use std::time::Duration;
@@ -10,7 +11,9 @@ use std::time::Duration;
 ///
 /// We only need `subscriptionId` (topics[1]) so we avoid decoding log data.
 fn subscribed_topic0() -> H256 {
-    ethers::utils::id("Subscribed(uint256,uint256,address,uint40,uint40)")
+    H256::from(keccak256(
+        "Subscribed(uint256,uint256,address,uint40,uint40)",
+    ))
 }
 
 pub async fn scan_new_subscriptions<M: Middleware>(
@@ -20,7 +23,10 @@ pub async fn scan_new_subscriptions<M: Middleware>(
     confirmations: u64,
     log_chunk_size: u64,
     state: &mut KeeperState,
-) -> Result<usize> {
+) -> Result<usize>
+where
+    <M as Middleware>::Error: 'static,
+{
     let latest = client.get_block_number().await?.as_u64();
     let target = latest.saturating_sub(confirmations);
 
@@ -114,7 +120,10 @@ async fn fetch_logs_with_retries<M: Middleware>(
     topic0: H256,
     from: u64,
     to: u64,
-) -> Result<Vec<ethers::types::Log>> {
+) -> Result<Vec<ethers::types::Log>>
+where
+    <M as Middleware>::Error: 'static,
+{
     if from > to {
         return Err(eyre!("invalid log range: from({from}) > to({to})"));
     }

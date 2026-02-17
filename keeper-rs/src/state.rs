@@ -10,7 +10,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum FailureKind {
     RpcError,
@@ -19,13 +19,8 @@ pub enum FailureKind {
     InsufficientBalance,
     SimulationRevert,
     MinedRevert,
+    #[default]
     Unknown,
-}
-
-impl Default for FailureKind {
-    fn default() -> Self {
-        FailureKind::Unknown
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
