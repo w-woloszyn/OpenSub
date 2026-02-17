@@ -1,0 +1,9 @@
+# local state
+state/
+
+# local envs / secrets
+.env
+.env.*
+
+# rust
+/target/
