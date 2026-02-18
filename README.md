@@ -13,6 +13,7 @@ This repo is organized as a set of milestones:
 - **Milestone 3 (Foundry tests: unit + fuzz + invariants):** `test/` + `docs/SPEC.md` + `docs/THREAT_MODEL.md`
 - **Milestone 4 (frontend handoff / demo deploy UX):** `docs/FRONTEND_HANDOFF.md` + `frontend/` + `script/DeployDemo.s.sol`
 - **Milestone 5 (keeper bot / automation):** `keeper-rs/` (Rust)
+- **Milestone 6A (ERC-4337 AA subscribe CLI):** `aa-rs/` (Rust)
 
 ⚠️ Not audited. Use at your own risk.
 
@@ -253,4 +254,3 @@ This is an automated proof that the keeper:
 2) Retries after backoff and successfully collects once allowance is restored.
 
 All temporary artifacts are written under `./.secrets/` (gitignored).
-

@@ -1,5 +1,11 @@
 out/
 cache/
 broadcast/
-\.secrets/
+.secrets/
+target/
+node_modules/
+.env
+.env.*
+aa-rs/.env
+keeper-rs/.env
 opensub.zip
