@@ -5,7 +5,8 @@ Date: 2026-02-18T06:11:15
 ## Repo Context
 - Branch: `since-m5-regression-20260218-055117`
 - BASELINE_M5: `a66917d6003af38c3da8af280b1067208def854e` (2026-02-17T20:26:40+01:00)
-- HEAD: `198e68b03d12865c6eb552f6d1628cd0e9d81a59` (2026-02-18T06:09:51+01:00)
+- Tested commit: `198e68b03d12865c6eb552f6d1628cd0e9d81a59` (2026-02-18T06:09:51+01:00)
+- Current HEAD: `95fefa03e8d5e28ded68640180d7279b467512dd` (2026-02-18T06:11:28+01:00, docs-only update)
 - Change summary: see `docs/SINCE_M5_CHANGES.md`
 
 ## Tool Versions
