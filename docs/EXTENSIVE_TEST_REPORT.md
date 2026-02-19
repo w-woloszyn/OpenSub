@@ -69,11 +69,16 @@ Status: PASS
 - keeper dry-run: `.secrets/keeper_base_dry_run.log`
 
 ## M6B Sponsored AA (Alchemy Gas Manager)
-Status: PASS (dry-run)
+Status: PASS (dry-run + live)
 
-Evidence:
+Dry-run evidence:
 - `.secrets/aa_sponsor_dry_run.out`
 - `.secrets/aa_sponsor_dry_run.err`
+
+Live-run evidence:
+- `.secrets/aa_sponsor_live.out`
+- `.secrets/aa_sponsor_live.err`
+- UserOp mined; `activeSubscriptionOf` returned non-zero and `hasAccess` true (logged in `.secrets/aa_sponsor_live.err`).
 
 ## Fixes Applied
 - `0e090b0` — aa: improve bundler parsing + tests
@@ -85,5 +90,4 @@ Evidence:
 ```
 
 ## Remaining Actions / Next Steps
-1. Provide Base Sepolia EntryPoint + SimpleAccountFactory addresses (set `OPENSUB_AA_ENTRYPOINT` and `OPENSUB_AA_FACTORY` or pass `--entrypoint`/`--factory`) to complete the AA account JSON sanity run.
-2. (Optional) Provide Alchemy bundler + paymaster + policy id to run M6B sponsored dry-run.
+- None required for Milestone 6B (live sponsored run completed).
