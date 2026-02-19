@@ -53,11 +53,7 @@ impl BundlerClient {
             .rpc("eth_sendUserOperation", params)
             .await
             .context("eth_sendUserOperation failed")?;
-
-        let hash_str = res
-            .as_str()
-            .ok_or_else(|| anyhow!("expected result string from eth_sendUserOperation"))?;
-        parse_h256(hash_str)
+        parse_userop_hash(&res)
     }
 
     /// Poll for a receipt until timeout.
@@ -137,4 +133,69 @@ fn parse_u256_field(v: &Value, key: &str) -> Result<U256> {
         .and_then(|x| x.as_str())
         .ok_or_else(|| anyhow!("missing or invalid field {key}"))?;
     parse_u256_quantity(s)
+}
+
+fn parse_userop_hash(res: &Value) -> Result<H256> {
+    // Most bundlers return the userOpHash directly as a JSON string.
+    // Alchemy's docs (and sometimes responses) wrap it in an object: { "result": "0x..." }.
+    // Accept both shapes for maximum compatibility.
+    let hash_str = if let Some(s) = res.as_str() {
+        s
+    } else if let Some(s) = res.get("result").and_then(|v| v.as_str()) {
+        s
+    } else if let Some(s) = res.get("userOpHash").and_then(|v| v.as_str()) {
+        s
+    } else if let Some(s) = res.get("userOperationHash").and_then(|v| v.as_str()) {
+        s
+    } else {
+        return Err(anyhow!(
+            "unexpected eth_sendUserOperation result shape (expected string or {{result: ...}}): {}",
+            res
+        ));
+    };
+
+    parse_h256(hash_str)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_userop_hash;
+    use crate::encoding::parse_h256;
+    use serde_json::json;
+
+    const HASH: &str = "0x1111111111111111111111111111111111111111111111111111111111111111";
+
+    #[test]
+    fn parse_userop_hash_from_string() {
+        let res = json!(HASH);
+        let hash = parse_userop_hash(&res).unwrap();
+        assert_eq!(hash, parse_h256(HASH).unwrap());
+    }
+
+    #[test]
+    fn parse_userop_hash_from_result_object() {
+        let res = json!({ "result": HASH });
+        let hash = parse_userop_hash(&res).unwrap();
+        assert_eq!(hash, parse_h256(HASH).unwrap());
+    }
+
+    #[test]
+    fn parse_userop_hash_from_userop_hash_object() {
+        let res = json!({ "userOpHash": HASH });
+        let hash = parse_userop_hash(&res).unwrap();
+        assert_eq!(hash, parse_h256(HASH).unwrap());
+    }
+
+    #[test]
+    fn parse_userop_hash_from_useroperation_hash_object() {
+        let res = json!({ "userOperationHash": HASH });
+        let hash = parse_userop_hash(&res).unwrap();
+        assert_eq!(hash, parse_h256(HASH).unwrap());
+    }
+
+    #[test]
+    fn parse_userop_hash_rejects_unknown_shape() {
+        let res = json!({ "foo": "bar" });
+        assert!(parse_userop_hash(&res).is_err());
+    }
 }
