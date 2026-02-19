@@ -9,3 +9,5 @@ node_modules/
 aa-rs/.env
 keeper-rs/.env
 opensub.zip
+*:Zone.Identifier
+*.Zone.Identifier
