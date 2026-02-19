@@ -4,7 +4,8 @@ use ethers::types::{Address, Bytes, U256};
 ///
 /// Note: EntryPoint v0.7 uses a *different* packed struct layout.
 ///
-/// Milestone 6A uses no paymaster, so `paymaster_and_data` is empty.
+/// Milestone 6A uses no paymaster (so `paymaster_and_data` is empty).
+/// Milestone 6B optionally populates `paymaster_and_data` via an ERC-7677 paymaster web service.
 #[derive(Clone, Debug)]
 pub struct UserOperation {
     pub sender: Address,

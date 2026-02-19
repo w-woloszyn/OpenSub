@@ -3,7 +3,7 @@ name = "opensub-aa"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "OpenSub Milestone 6A: ERC-4337 subscribe CLI (Rust)"
+description = "OpenSub Milestone 6A/6B: ERC-4337 subscribe CLI + optional paymaster sponsorship (Rust)"
 
 [dependencies]
 anyhow = "1"

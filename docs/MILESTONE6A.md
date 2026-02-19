@@ -7,7 +7,7 @@ Milestone 6A focuses on **AA without sponsorship**:
 - No paymaster
 - The smart account pays gas (prefund)
 
-Milestone 6B will later add a paymaster / sponsorship policy.
+For gas sponsorship / paymaster integration, see **Milestone 6B**: `docs/MILESTONE6B.md`.
 
 ---
 
@@ -57,7 +57,7 @@ From repo root:
 
 ```bash
 cd aa-rs
-cp .env.example .env
+cp env.example .env
 # edit .env with bundler/entrypoint/factory/owner key
 cargo build --release
 
@@ -151,5 +151,5 @@ Notes:
 
 - UserOperation struct already includes `paymasterAndData`.
 - Bundler client is isolated.
-- Sponsorship can be added by populating `paymasterAndData` + (optionally) calling a paymaster endpoint.
+- Sponsorship is added by populating `paymasterAndData` via a paymaster endpoint.
 

@@ -38,6 +38,26 @@ pub fn user_op_to_json(op: &UserOperation) -> serde_json::Value {
     })
 }
 
+/// Build a JSON user operation object suitable for ERC-7677 paymaster RPC methods.
+///
+/// Paymaster web services expect an *unsigned* user operation (no `signature`) and (for
+/// EntryPoint v0.6) typically without `paymasterAndData`.
+///
+/// We include `initCode` because sponsorship may also cover account deployment.
+pub fn user_op_to_paymaster_json(op: &UserOperation) -> serde_json::Value {
+    serde_json::json!({
+        "sender": fmt_address(op.sender),
+        "nonce": fmt_u256(op.nonce),
+        "initCode": fmt_bytes(&op.init_code),
+        "callData": fmt_bytes(&op.call_data),
+        "callGasLimit": fmt_u256(op.call_gas_limit),
+        "verificationGasLimit": fmt_u256(op.verification_gas_limit),
+        "preVerificationGas": fmt_u256(op.pre_verification_gas),
+        "maxFeePerGas": fmt_u256(op.max_fee_per_gas),
+        "maxPriorityFeePerGas": fmt_u256(op.max_priority_fee_per_gas),
+    })
+}
+
 pub fn parse_u256_quantity(s: &str) -> anyhow::Result<U256> {
     let s = s.strip_prefix("0x").unwrap_or(s);
     if s.is_empty() {

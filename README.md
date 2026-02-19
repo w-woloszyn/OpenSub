@@ -14,6 +14,7 @@ This repo is organized as a set of milestones:
 - **Milestone 4 (frontend handoff / demo deploy UX):** `docs/FRONTEND_HANDOFF.md` + `frontend/` + `script/DeployDemo.s.sol`
 - **Milestone 5 (keeper bot / automation):** `keeper-rs/` (Rust)
 - **Milestone 6A (ERC-4337 AA subscribe CLI):** `aa-rs/` (Rust)
+- **Milestone 6B (gasless subscribe via paymaster):** `docs/MILESTONE6B.md` + `aa-rs/`
 
 ⚠️ Not audited. Use at your own risk.
 

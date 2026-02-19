@@ -1,15 +1,19 @@
-# OpenSub AA (Milestone 6A) — Rust CLI
+# OpenSub AA (Milestone 6A + 6B) — Rust CLI
 
-This folder implements **Milestone 6A**: an **ERC-4337 (Account Abstraction)** subscribe flow in **Rust**.
+This folder implements:
+
+- **Milestone 6A**: ERC-4337 (Account Abstraction) subscribe flow in Rust.
+- **Milestone 6B**: optional **gas sponsorship** via a paymaster web service (ERC-7677).
 
 Goal:
 - Create (counterfactual) smart account (e.g., `SimpleAccount`)
 - (Optionally) fund it with ETH + mint demo `mUSDC` to it
 - Send a single **UserOperation** that batches:
+  0) *(Optional demo-only)* `MockERC20.mint(smartAccount, amount)`
   1) `ERC20.approve(OpenSub, allowance)`
   2) `OpenSub.subscribe(planId)`
 
-This is **6A only** (no paymaster / no gas sponsorship). Milestone 6B will later add paymaster integration.
+Milestone 6B is implemented as an **optional** mode (`--sponsor-gas`) so you can keep using pure 6A flows.
 
 ---
 
@@ -29,7 +33,7 @@ From repo root:
 
 ```bash
 cd aa-rs
-cp .env.example .env
+cp env.example .env
 # edit .env
 ```
 
@@ -63,7 +67,9 @@ cargo run --release -- account \
 ```
 
 This writes the private key to a local file under `../.secrets/` (never printed).
-Fund the owner address with a small amount of test ETH before sending live UserOperations.
+Fund the owner address with a small amount of test ETH if you plan to send **regular EOA transactions**
+(e.g., using `--fund-eth` in Milestone 6A flows). For Milestone 6B sponsored flows, the owner can have
+0 ETH (they only sign; the paymaster covers the UserOperation gas).
 
 If you want **stdout-only** machine output (for scripts), use one of:
 
@@ -156,6 +162,27 @@ Notes:
 - `--fund-eth` is in **ETH** (decimal string).
 - `--mint` is a raw integer in token base units. For mUSDC (6 decimals):
   - `10_000_000` = 10.0 mUSDC
+ - `--mint` executes **inside the UserOperation** (it is *not* a standalone EOA transaction), so it can be sponsored
+   when `--sponsor-gas` is enabled. It will revert on real tokens.
+
+### 4) Sponsored subscribe (Milestone 6B)
+
+If you have an ERC-7677 paymaster web service configured (recommended: Alchemy Gas Manager on Base Sepolia),
+you can make the subscriber flow *gasless*:
+
+```bash
+cargo run --release -- subscribe \
+  --deployment ../deployments/base-sepolia.json \
+  --new-owner \
+  --salt 0 \
+  --mint 10000000 \
+  --allowance-periods 12 \
+  --sponsor-gas
+```
+
+Notes:
+- With `--sponsor-gas`, `--fund-eth` is usually unnecessary.
+- You must set `OPENSUB_AA_PAYMASTER_URL` and `OPENSUB_AA_GAS_MANAGER_POLICY_ID`.
 
 If you only want to build + estimate (no send):
 
@@ -177,12 +204,16 @@ The CLI reads these (can be in `aa-rs/.env`):
 - `OPENSUB_AA_FACTORY` (**required**)
 - `OPENSUB_AA_OWNER_PRIVATE_KEY` (**required unless you use `--new-owner`**)
 
+When using `--sponsor-gas` (Milestone 6B):
+
+- `OPENSUB_AA_PAYMASTER_URL` (**required**) — paymaster RPC URL (ERC-7677)
+- `OPENSUB_AA_GAS_MANAGER_POLICY_ID` (**required**) — Alchemy Gas Manager policy id
+- `OPENSUB_AA_GAS_MANAGER_WEBHOOK_DATA` (optional)
+
 ---
 
-## Milestone 6B compatibility
+## Notes
 
-This code is structured so Milestone 6B can be added without refactors:
-- `paymasterAndData` is plumbed through the UserOperation type
-- bundler JSON-RPC client is a dedicated module
-- adding paymaster signing / sponsorship becomes an additive change
+- The paymaster integration uses the ERC-7677 methods `pm_getPaymasterStubData` and `pm_getPaymasterData`.
+- The UserOperation struct is EntryPoint v0.6.
 
