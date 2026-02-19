@@ -1,15 +1,17 @@
 mod bundler;
 mod config;
 mod encoding;
+mod paymaster;
 mod types;
 
 use anyhow::{anyhow, Context, Result};
 use bundler::BundlerClient;
 use clap::{Args, Parser, Subcommand};
 use config::load_deployment;
-use ethers::abi::AbiParser;
+use ethers::abi::{Abi, AbiParser};
 use ethers::prelude::*;
 use ethers::providers::Middleware;
+use paymaster::PaymasterClient;
 use rand::rngs::OsRng;
 use rand::RngCore;
 use std::fs;
@@ -137,6 +139,28 @@ struct SubscribeArgs {
     /// Bundler RPC URL (must support ERC-4337 JSON-RPC methods).
     #[arg(long, env = "OPENSUB_AA_BUNDLER_URL")]
     bundler: String,
+
+    /// Sponsor gas using an ERC-7677 paymaster web service (Milestone 6B).
+    ///
+    /// For Base Sepolia with Alchemy Gas Manager, set:
+    /// - OPENSUB_AA_PAYMASTER_URL=https://base-sepolia.g.alchemy.com/v2/<apiKey>
+    /// - OPENSUB_AA_GAS_MANAGER_POLICY_ID=<your policy id>
+    #[arg(long, default_value_t = false)]
+    sponsor_gas: bool,
+
+    /// Paymaster RPC URL (ERC-7677 paymaster web service).
+    ///
+    /// For Alchemy Gas Manager, this is an Alchemy HTTPS endpoint for the target chain.
+    #[arg(long, env = "OPENSUB_AA_PAYMASTER_URL")]
+    paymaster_url: Option<String>,
+
+    /// Gas Manager policy id (Alchemy Gas Manager).
+    #[arg(long, env = "OPENSUB_AA_GAS_MANAGER_POLICY_ID")]
+    policy_id: Option<String>,
+
+    /// Optional webhookData to include in paymaster requests.
+    #[arg(long, env = "OPENSUB_AA_GAS_MANAGER_WEBHOOK_DATA")]
+    webhook_data: Option<String>,
 
     /// Allowance in units of "periods" (allowance = price * periods).
     #[arg(long, default_value_t = 12)]
@@ -385,12 +409,23 @@ async fn cmd_subscribe(args: SubscribeArgs) -> Result<()> {
         fund_account_eth(client.clone(), account, amount_wei).await?;
     }
 
-    // Optional mint (demo-only token).
-    if let Some(mint_amount) = args.mint.clone() {
+    // Optional mint amount (demo-only token).
+    //
+    // Important: this is now executed *inside the UserOperation* (as part of the executeBatch call),
+    // so it can be sponsored by a paymaster in Milestone 6B.
+    //
+    // This only works for the repo's MockERC20, which has an unrestricted `mint(address,uint256)`.
+    let mint_amount: Option<U256> = if let Some(mint_amount) = args.mint.clone() {
         let amt = U256::from_dec_str(&mint_amount)
             .with_context(|| format!("invalid --mint amount (expected integer): {mint_amount}"))?;
-        mint_demo_tokens(client.clone(), dep.token, account, amt).await?;
-    }
+        if amt.is_zero() {
+            None
+        } else {
+            Some(amt)
+        }
+    } else {
+        None
+    };
 
     // Compute allowance.
     let allowance_amount = if let Some(a) = args.allowance_amount.clone() {
@@ -414,6 +449,7 @@ async fn cmd_subscribe(args: SubscribeArgs) -> Result<()> {
         salt,
         account,
         deployed,
+        mint_amount,
         allowance_amount,
     )
     .await?;
@@ -432,21 +468,71 @@ async fn cmd_subscribe(args: SubscribeArgs) -> Result<()> {
         nonce,
         init_code,
         call_data,
-        call_gas_limit: U256::from(1_000_000u64),
-        verification_gas_limit: U256::from(1_000_000u64),
-        pre_verification_gas: U256::from(100_000u64),
+        // Use zero initial gas fields. Bundlers will fill these in `eth_estimateUserOperationGas`,
+        // and paymasters (ERC-7677) can still return stub data for estimation.
+        //
+        // Using large placeholders can cause paymaster policies to reject requests.
+        call_gas_limit: U256::zero(),
+        verification_gas_limit: U256::zero(),
+        pre_verification_gas: U256::zero(),
         max_fee_per_gas,
         max_priority_fee_per_gas,
         paymaster_and_data: Bytes::from(Vec::new()),
         signature: Bytes::from(vec![0u8; 65]),
     };
 
+    let bundler = BundlerClient::new(args.bundler.clone());
+
+    // Optional paymaster (Milestone 6B: Alchemy Gas Manager via ERC-7677).
+    //
+    // Flow:
+    // 1) (optional) pm_getPaymasterStubData  -> set paymasterAndData (stub)
+    // 2) bundler gas estimate               -> set gas limits
+    // 3) (optional) pm_getPaymasterData     -> set paymasterAndData (final)
+    // 4) sign + send
+    let (paymaster, policy_id) = if args.sponsor_gas {
+        let url = args.paymaster_url.clone().ok_or_else(|| {
+            anyhow!("--sponsor-gas requires --paymaster-url (or OPENSUB_AA_PAYMASTER_URL)")
+        })?;
+        let policy_id = args.policy_id.clone().ok_or_else(|| {
+            anyhow!("--sponsor-gas requires --policy-id (or OPENSUB_AA_GAS_MANAGER_POLICY_ID)")
+        })?;
+
+        if args.fund_eth.is_some() {
+            outln!(
+                machine_mode,
+                "note: --sponsor-gas is enabled, so --fund-eth is usually not required (paymaster covers prefund)."
+            );
+        }
+
+        (Some(PaymasterClient::new(url)), Some(policy_id))
+    } else {
+        (None, None)
+    };
+
+    // If using a paymaster, fetch stub paymasterAndData BEFORE gas estimation.
+    if let (Some(pm), Some(pid)) = (paymaster.as_ref(), policy_id.as_ref()) {
+        outln!(
+            machine_mode,
+            "requesting paymaster stub data (pm_getPaymasterStubData)..."
+        );
+        let stub = pm
+            .get_paymaster_stub_data(
+                encoding::user_op_to_paymaster_json(&op),
+                entrypoint,
+                chain_id,
+                pid,
+                args.webhook_data.as_deref(),
+            )
+            .await
+            .context("pm_getPaymasterStubData failed")?;
+        op.paymaster_and_data = stub;
+    }
+
     // Sign for estimation.
     sign_userop(client.clone(), entrypoint, &mut op, &wallet).await?;
 
-    let bundler = BundlerClient::new(args.bundler.clone());
-
-    // Estimate gas.
+    // Estimate gas via bundler.
     let est = bundler
         .estimate_user_operation_gas(encoding::user_op_to_json(&op), entrypoint)
         .await
@@ -456,7 +542,26 @@ async fn cmd_subscribe(args: SubscribeArgs) -> Result<()> {
     op.verification_gas_limit = est.verification_gas_limit;
     op.pre_verification_gas = est.pre_verification_gas;
 
-    // Re-sign with final gas limits.
+    // If using a paymaster, fetch FINAL paymasterAndData AFTER gas estimation.
+    if let (Some(pm), Some(pid)) = (paymaster.as_ref(), policy_id.as_ref()) {
+        outln!(
+            machine_mode,
+            "requesting paymaster final data (pm_getPaymasterData)..."
+        );
+        let final_pm = pm
+            .get_paymaster_data(
+                encoding::user_op_to_paymaster_json(&op),
+                entrypoint,
+                chain_id,
+                pid,
+                args.webhook_data.as_deref(),
+            )
+            .await
+            .context("pm_getPaymasterData failed")?;
+        op.paymaster_and_data = final_pm;
+    }
+
+    // Re-sign with final gas limits + final paymasterAndData.
     sign_userop(client.clone(), entrypoint, &mut op, &wallet).await?;
 
     outln!(
@@ -707,6 +812,7 @@ async fn build_userop_payload<M: Middleware + 'static>(
     salt: U256,
     account: Address,
     deployed: bool,
+    mint_amount: Option<U256>,
     allowance_amount: U256,
 ) -> Result<(Bytes, Bytes, U256)> {
     let entrypoint_abi = AbiParser::default()
@@ -736,11 +842,26 @@ async fn build_userop_payload<M: Middleware + 'static>(
         Bytes::from(v)
     };
 
-    // Approve + subscribe call data.
-    let erc20_abi = AbiParser::default()
-        .parse(&["function approve(address spender, uint256 amount) returns (bool)"])?;
-    let erc20 = Contract::new(token, erc20_abi, client.clone());
-    let approve_calldata = erc20
+    // Token call data (optionally mint, then approve).
+    // NOTE: `mint` is demo-only; it will revert on real tokens.
+    let token_abi = AbiParser::default().parse(&[
+        "function mint(address to, uint256 amount)",
+        "function approve(address spender, uint256 amount) returns (bool)",
+    ])?;
+    let token_c = Contract::new(token, token_abi, client.clone());
+
+    let mint_calldata: Option<Bytes> = if let Some(amt) = mint_amount {
+        Some(
+            token_c
+                .method::<_, ()>("mint", (account, amt))?
+                .calldata()
+                .ok_or_else(|| anyhow!("failed to build mint calldata"))?,
+        )
+    } else {
+        None
+    };
+
+    let approve_calldata = token_c
         .method::<_, bool>("approve", (open_sub, allowance_amount))?
         .calldata()
         .ok_or_else(|| anyhow!("failed to build approve calldata"))?;
@@ -758,8 +879,19 @@ async fn build_userop_payload<M: Middleware + 'static>(
         AbiParser::default().parse(&["function executeBatch(address[] dest, bytes[] func)"])?;
     let account_c = Contract::new(account, account_abi, client);
 
-    let dests = vec![token, open_sub.address()];
-    let funcs = vec![approve_calldata, subscribe_calldata];
+    let mut dests: Vec<Address> = Vec::new();
+    let mut funcs: Vec<Bytes> = Vec::new();
+
+    if let Some(m) = mint_calldata {
+        dests.push(token);
+        funcs.push(m);
+    }
+
+    dests.push(token);
+    funcs.push(approve_calldata);
+
+    dests.push(open_sub.address());
+    funcs.push(subscribe_calldata);
 
     let call_data = account_c
         .method::<_, ()>("executeBatch", (dests, funcs))?
@@ -776,9 +908,10 @@ async fn sign_userop<M: Middleware + 'static>(
     wallet: &LocalWallet,
 ) -> Result<()> {
     // Use the on-chain EntryPoint.getUserOpHash for correctness.
-    let entrypoint_abi = AbiParser::default().parse(&[
-        "function getUserOpHash((address sender,uint256 nonce,bytes initCode,bytes callData,uint256 callGasLimit,uint256 verificationGasLimit,uint256 preVerificationGas,uint256 maxFeePerGas,uint256 maxPriorityFeePerGas,bytes paymasterAndData,bytes signature) userOp) view returns (bytes32)",
-    ])?;
+    let entrypoint_abi: Abi = serde_json::from_str(
+        r#"[{"inputs":[{"components":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"uint256","name":"nonce","type":"uint256"},{"internalType":"bytes","name":"initCode","type":"bytes"},{"internalType":"bytes","name":"callData","type":"bytes"},{"internalType":"uint256","name":"callGasLimit","type":"uint256"},{"internalType":"uint256","name":"verificationGasLimit","type":"uint256"},{"internalType":"uint256","name":"preVerificationGas","type":"uint256"},{"internalType":"uint256","name":"maxFeePerGas","type":"uint256"},{"internalType":"uint256","name":"maxPriorityFeePerGas","type":"uint256"},{"internalType":"bytes","name":"paymasterAndData","type":"bytes"},{"internalType":"bytes","name":"signature","type":"bytes"}],"internalType":"struct UserOperation","name":"userOp","type":"tuple"}],"name":"getUserOpHash","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"}]"#,
+    )
+    .context("failed to parse EntryPoint ABI")?;
 
     let entrypoint_c = Contract::new(entrypoint, entrypoint_abi, client);
 
@@ -822,34 +955,6 @@ async fn fund_account_eth<M: Middleware + 'static>(
     }
 
     tracing::info!("funded smart account with {} wei", amount_wei);
-    Ok(())
-}
-
-async fn mint_demo_tokens<M: Middleware + 'static>(
-    client: Arc<M>,
-    token: Address,
-    to: Address,
-    amount: U256,
-) -> Result<()> {
-    if amount.is_zero() {
-        return Ok(());
-    }
-
-    let abi = AbiParser::default().parse(&["function mint(address to, uint256 amount)"])?;
-    let token = Contract::new(token, abi, client);
-
-    let call = token.method::<_, ()>("mint", (to, amount))?;
-    let pending = call
-        .send()
-        .await
-        .context("failed to send mint tx (is token mintable?)")?;
-
-    let receipt = pending.await.context("failed waiting for mint receipt")?;
-    if receipt.is_none() {
-        return Err(anyhow!("mint tx dropped from mempool"));
-    }
-
-    tracing::info!("minted {} tokens to {}", amount, to);
     Ok(())
 }
 
