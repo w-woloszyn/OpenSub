@@ -46,3 +46,21 @@ jobs:
 
       - name: Build
         run: cargo build --manifest-path keeper-rs/Cargo.toml --release
+
+  aa_cli:
+    name: AA CLI (Rust)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Rustfmt
+        run: cargo fmt --manifest-path aa-rs/Cargo.toml --all -- --check
+
+      - name: Build
+        run: cargo build --manifest-path aa-rs/Cargo.toml --release
