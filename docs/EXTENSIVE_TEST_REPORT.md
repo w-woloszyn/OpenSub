@@ -1,7 +1,7 @@
 # Extensive Test Report
 
 ## Context
-- Date: 2026-02-19T21:51:32+01:00
+- Date: 2026-02-20T00:52:00+01:00
 - Branch: extensive-test-20260219-203946
 - HEAD: bc996968e81086b7f61ab7ef565e0814718779d3
 
@@ -47,24 +47,24 @@ Evidence:
 - scenario battery: `.secrets/scenario_1.log` through `.secrets/scenario_8.log`
 
 ## Frontend (Next.js)
-Status: FAIL (dependency install blocked)
+Status: PASS
 
-Details:
-- `npm install` failed with DNS errors (EAI_AGAIN) to the npm registry.
-- Logs: `.secrets/frontend_install.log`
-- Typecheck/build skipped due to missing deps.
+Evidence:
+- install: `.secrets/frontend_install.log`
+- typecheck: `.secrets/frontend_typecheck.log`
+- lint: `.secrets/frontend_lint.log`
+- build: `.secrets/frontend_build.log`
 
 ## Base Sepolia (Dry-Run)
-Status: SKIPPED (RPC DNS failure)
+Status: PASS (dry-run only)
 
-Details:
-- `cast chain-id` failed with DNS resolution errors for RPC.
-- Logs: `.secrets/base_chainid.log`
-- Keeper dry-run and AA sponsored dry-run skipped.
+Evidence:
+- chain-id: `.secrets/base_chainid.log`
+- keeper dry-run: `.secrets/keeper_base_dry_run.log`
+- AA sponsored dry-run: `.secrets/aa_sponsor_dry_run.out`, `.secrets/aa_sponsor_dry_run.err`
 
 ## Fixes Applied
-- None in this run.
+- Frontend lint/build fix: add Next.js ESLint config and escape unescaped quotes in `frontend/app/page.tsx`.
 
 ## Next Steps
-1. Resolve npm registry DNS/network access, then rerun frontend: install → typecheck → build.
-2. Restore RPC DNS/network access to run Base Sepolia dry-runs.
+1. Optional: Run live Base Sepolia transactions only if explicitly enabled and funded.
