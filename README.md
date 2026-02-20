@@ -162,6 +162,18 @@ Frontend handoff docs + ABI/config templates live in:
 - `docs/ALLOWANCE_POLICY.md`
 - `frontend/abi/*` and `frontend/config/*`
 
+There is also a **minimal demo frontend** (Next.js + wagmi) under `frontend/`.
+
+Quick start:
+
+```bash
+cd frontend
+npm i
+npm run dev
+```
+
+See `frontend/README.md` for local Anvil + Base Sepolia notes and the optional gasless (AA) demo page.
+
 ---
 
 ## Keeper bot (Milestone 5)
