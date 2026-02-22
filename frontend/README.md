@@ -18,6 +18,16 @@ npm run dev
 
 Open: http://localhost:3000
 
+### AA-only mode (recommended for demo)
+
+Set this in `frontend/.env.local`:
+
+```
+NEXT_PUBLIC_AA_ONLY_DEMO=1
+```
+
+This hides wallet UI and focuses the demo on gasless AA subscriptions.
+
 ## Chains
 
 ### Base Sepolia (default)
@@ -63,8 +73,9 @@ cp env.example .env.local
 3) Use the **Gasless (AA)** page.
 
 Notes:
-- This is **demo-only**: it generates a fresh owner key and stores it under `.secrets/`.
+- This is **demo-only**: it generates an owner key in the browser and stores it in `localStorage`.
 - It requires an Alchemy Gas Manager policy on Base Sepolia.
+- Storing a private key in `localStorage` is not production safe.
 
 ## Where to look in code
 

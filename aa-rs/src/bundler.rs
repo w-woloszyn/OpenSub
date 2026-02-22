@@ -64,7 +64,7 @@ impl BundlerClient {
     ) -> Result<Value> {
         let start = std::time::Instant::now();
         loop {
-            if start.elapsed() > timeout {
+            if timeout.as_secs() > 0 && start.elapsed() > timeout {
                 return Err(anyhow!(
                     "timed out waiting for userOp receipt after {:?}",
                     timeout

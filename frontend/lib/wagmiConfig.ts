@@ -1,5 +1,5 @@
 import { http, createConfig } from "wagmi";
-import { injected } from "wagmi/connectors";
+import { injected } from "@wagmi/core";
 import { anvil, baseSepolia } from "wagmi/chains";
 
 // NOTE: This is a demo app. We keep configuration explicit and minimal.

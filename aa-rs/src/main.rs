@@ -56,6 +56,15 @@ enum Command {
 
     /// Build + send a UserOperation that approves + subscribes.
     Subscribe(SubscribeArgs),
+
+    /// Cancel a subscription (now or at period end).
+    Cancel(CancelArgs),
+
+    /// Resume auto-renew after a scheduled cancellation.
+    Resume(ResumeArgs),
+
+    /// Collect a due payment for a subscription.
+    Collect(CollectArgs),
 }
 
 #[derive(Args, Debug)]
@@ -182,6 +191,12 @@ struct SubscribeArgs {
     #[arg(long)]
     fund_eth: Option<String>,
 
+    /// Gas price multiplier in basis points (e.g. 15000 = 1.5x).
+    ///
+    /// Applied to maxFeePerGas and maxPriorityFeePerGas.
+    #[arg(long, default_value_t = 10000, env = "OPENSUB_AA_GAS_MULTIPLIER_BPS")]
+    gas_multiplier_bps: u64,
+
     /// Do not send the UserOperation; only build + estimate gas.
     #[arg(long)]
     dry_run: bool,
@@ -190,9 +205,228 @@ struct SubscribeArgs {
     #[arg(long)]
     no_wait: bool,
 
-    /// Max seconds to wait for userOp receipt.
+    /// Max seconds to wait for userOp receipt. Use 0 to disable timeout.
     #[arg(long, default_value_t = 180)]
     max_wait_seconds: u64,
+}
+
+#[derive(Args, Debug)]
+struct CancelArgs {
+    #[command(flatten)]
+    common: CommonArgs,
+
+    /// Bundler RPC URL (must support ERC-4337 JSON-RPC methods).
+    #[arg(long, env = "OPENSUB_AA_BUNDLER_URL")]
+    bundler: String,
+
+    /// Sponsor gas using an ERC-7677 paymaster web service (Milestone 6B).
+    #[arg(long, default_value_t = false)]
+    sponsor_gas: bool,
+
+    /// Paymaster RPC URL (ERC-7677 paymaster web service).
+    #[arg(long, env = "OPENSUB_AA_PAYMASTER_URL")]
+    paymaster_url: Option<String>,
+
+    /// Gas Manager policy id (Alchemy Gas Manager).
+    #[arg(long, env = "OPENSUB_AA_GAS_MANAGER_POLICY_ID")]
+    policy_id: Option<String>,
+
+    /// Optional webhookData to include in paymaster requests.
+    #[arg(long, env = "OPENSUB_AA_GAS_MANAGER_WEBHOOK_DATA")]
+    webhook_data: Option<String>,
+
+    /// Subscription id to cancel.
+    #[arg(long)]
+    subscription_id: u64,
+
+    /// If set, cancel at period end (non-renewing) instead of immediately.
+    #[arg(long, default_value_t = false)]
+    at_period_end: bool,
+
+    /// Gas price multiplier in basis points (e.g. 15000 = 1.5x).
+    #[arg(long, default_value_t = 10000, env = "OPENSUB_AA_GAS_MULTIPLIER_BPS")]
+    gas_multiplier_bps: u64,
+
+    /// Do not send the UserOperation; only build + estimate gas.
+    #[arg(long)]
+    dry_run: bool,
+
+    /// Do not wait for the userOp receipt.
+    #[arg(long)]
+    no_wait: bool,
+
+    /// Max seconds to wait for userOp receipt. Use 0 to disable timeout.
+    #[arg(long, default_value_t = 180)]
+    max_wait_seconds: u64,
+}
+
+#[derive(Args, Debug)]
+struct ResumeArgs {
+    #[command(flatten)]
+    common: CommonArgs,
+
+    /// Bundler RPC URL (must support ERC-4337 JSON-RPC methods).
+    #[arg(long, env = "OPENSUB_AA_BUNDLER_URL")]
+    bundler: String,
+
+    /// Sponsor gas using an ERC-7677 paymaster web service (Milestone 6B).
+    #[arg(long, default_value_t = false)]
+    sponsor_gas: bool,
+
+    /// Paymaster RPC URL (ERC-7677 paymaster web service).
+    #[arg(long, env = "OPENSUB_AA_PAYMASTER_URL")]
+    paymaster_url: Option<String>,
+
+    /// Gas Manager policy id (Alchemy Gas Manager).
+    #[arg(long, env = "OPENSUB_AA_GAS_MANAGER_POLICY_ID")]
+    policy_id: Option<String>,
+
+    /// Optional webhookData to include in paymaster requests.
+    #[arg(long, env = "OPENSUB_AA_GAS_MANAGER_WEBHOOK_DATA")]
+    webhook_data: Option<String>,
+
+    /// Subscription id to resume.
+    #[arg(long)]
+    subscription_id: u64,
+
+    /// Gas price multiplier in basis points (e.g. 15000 = 1.5x).
+    #[arg(long, default_value_t = 10000, env = "OPENSUB_AA_GAS_MULTIPLIER_BPS")]
+    gas_multiplier_bps: u64,
+
+    /// Do not send the UserOperation; only build + estimate gas.
+    #[arg(long)]
+    dry_run: bool,
+
+    /// Do not wait for the userOp receipt.
+    #[arg(long)]
+    no_wait: bool,
+
+    /// Max seconds to wait for userOp receipt. Use 0 to disable timeout.
+    #[arg(long, default_value_t = 180)]
+    max_wait_seconds: u64,
+}
+
+#[derive(Args, Debug)]
+struct CollectArgs {
+    #[command(flatten)]
+    common: CommonArgs,
+
+    /// Bundler RPC URL (must support ERC-4337 JSON-RPC methods).
+    #[arg(long, env = "OPENSUB_AA_BUNDLER_URL")]
+    bundler: String,
+
+    /// Sponsor gas using an ERC-7677 paymaster web service (Milestone 6B).
+    #[arg(long, default_value_t = false)]
+    sponsor_gas: bool,
+
+    /// Paymaster RPC URL (ERC-7677 paymaster web service).
+    #[arg(long, env = "OPENSUB_AA_PAYMASTER_URL")]
+    paymaster_url: Option<String>,
+
+    /// Gas Manager policy id (Alchemy Gas Manager).
+    #[arg(long, env = "OPENSUB_AA_GAS_MANAGER_POLICY_ID")]
+    policy_id: Option<String>,
+
+    /// Optional webhookData to include in paymaster requests.
+    #[arg(long, env = "OPENSUB_AA_GAS_MANAGER_WEBHOOK_DATA")]
+    webhook_data: Option<String>,
+
+    /// Subscription id to collect.
+    #[arg(long)]
+    subscription_id: u64,
+
+    /// Gas price multiplier in basis points (e.g. 15000 = 1.5x).
+    #[arg(long, default_value_t = 10000, env = "OPENSUB_AA_GAS_MULTIPLIER_BPS")]
+    gas_multiplier_bps: u64,
+
+    /// Do not send the UserOperation; only build + estimate gas.
+    #[arg(long)]
+    dry_run: bool,
+
+    /// Do not wait for the userOp receipt.
+    #[arg(long)]
+    no_wait: bool,
+
+    /// Max seconds to wait for userOp receipt. Use 0 to disable timeout.
+    #[arg(long, default_value_t = 180)]
+    max_wait_seconds: u64,
+}
+
+#[derive(Clone, Debug)]
+struct TxArgs {
+    bundler: String,
+    sponsor_gas: bool,
+    paymaster_url: Option<String>,
+    policy_id: Option<String>,
+    webhook_data: Option<String>,
+    gas_multiplier_bps: u64,
+    dry_run: bool,
+    no_wait: bool,
+    max_wait_seconds: u64,
+}
+
+impl From<&SubscribeArgs> for TxArgs {
+    fn from(args: &SubscribeArgs) -> Self {
+        Self {
+            bundler: args.bundler.clone(),
+            sponsor_gas: args.sponsor_gas,
+            paymaster_url: args.paymaster_url.clone(),
+            policy_id: args.policy_id.clone(),
+            webhook_data: args.webhook_data.clone(),
+            gas_multiplier_bps: args.gas_multiplier_bps,
+            dry_run: args.dry_run,
+            no_wait: args.no_wait,
+            max_wait_seconds: args.max_wait_seconds,
+        }
+    }
+}
+
+impl From<&CancelArgs> for TxArgs {
+    fn from(args: &CancelArgs) -> Self {
+        Self {
+            bundler: args.bundler.clone(),
+            sponsor_gas: args.sponsor_gas,
+            paymaster_url: args.paymaster_url.clone(),
+            policy_id: args.policy_id.clone(),
+            webhook_data: args.webhook_data.clone(),
+            gas_multiplier_bps: args.gas_multiplier_bps,
+            dry_run: args.dry_run,
+            no_wait: args.no_wait,
+            max_wait_seconds: args.max_wait_seconds,
+        }
+    }
+}
+
+impl From<&ResumeArgs> for TxArgs {
+    fn from(args: &ResumeArgs) -> Self {
+        Self {
+            bundler: args.bundler.clone(),
+            sponsor_gas: args.sponsor_gas,
+            paymaster_url: args.paymaster_url.clone(),
+            policy_id: args.policy_id.clone(),
+            webhook_data: args.webhook_data.clone(),
+            gas_multiplier_bps: args.gas_multiplier_bps,
+            dry_run: args.dry_run,
+            no_wait: args.no_wait,
+            max_wait_seconds: args.max_wait_seconds,
+        }
+    }
+}
+
+impl From<&CollectArgs> for TxArgs {
+    fn from(args: &CollectArgs) -> Self {
+        Self {
+            bundler: args.bundler.clone(),
+            sponsor_gas: args.sponsor_gas,
+            paymaster_url: args.paymaster_url.clone(),
+            policy_id: args.policy_id.clone(),
+            webhook_data: args.webhook_data.clone(),
+            gas_multiplier_bps: args.gas_multiplier_bps,
+            dry_run: args.dry_run,
+            no_wait: args.no_wait,
+            max_wait_seconds: args.max_wait_seconds,
+        }
+    }
 }
 
 #[tokio::main]
@@ -211,6 +445,9 @@ async fn main() -> Result<()> {
     match cli.cmd {
         Command::Account(args) => cmd_account(args).await,
         Command::Subscribe(args) => cmd_subscribe(args).await,
+        Command::Cancel(args) => cmd_cancel(args).await,
+        Command::Resume(args) => cmd_resume(args).await,
+        Command::Collect(args) => cmd_collect(args).await,
     }
 }
 
@@ -275,8 +512,8 @@ async fn cmd_account(args: AccountArgs) -> Result<()> {
     if mode == StdoutMode::Json {
         let env_path = owner_env_path.as_ref().map(|p| p.display().to_string());
         let out = serde_json::json!({
-            "owner": format!("{}", owner),
-            "smartAccount": format!("{}", account),
+            "owner": encoding::fmt_address(owner),
+            "smartAccount": encoding::fmt_address(account),
             "envPath": env_path,
         });
         println!("{}", out);
@@ -388,8 +625,8 @@ async fn cmd_subscribe(args: SubscribeArgs) -> Result<()> {
     if mode == StdoutMode::Json {
         let env_path = owner_env_path.as_ref().map(|p| p.display().to_string());
         let out = serde_json::json!({
-            "owner": format!("{}", owner),
-            "smartAccount": format!("{}", account),
+            "owner": encoding::fmt_address(owner),
+            "smartAccount": encoding::fmt_address(account),
             "envPath": env_path,
         });
         println!("{}", out);
@@ -454,156 +691,27 @@ async fn cmd_subscribe(args: SubscribeArgs) -> Result<()> {
     )
     .await?;
 
-    // Fee data (fallback to gas price for providers without EIP-1559 helpers).
-    let gas_price = provider
-        .get_gas_price()
-        .await
-        .context("failed to fetch gas price")?;
-    let max_priority_fee_per_gas = gas_price;
-    let max_fee_per_gas = gas_price;
-
-    // Initial gas guesses (will be overwritten by bundler estimate).
-    let mut op = UserOperation {
-        sender: account,
-        nonce,
-        init_code,
+    let tx_args: TxArgs = (&args).into();
+    let got_receipt = send_userop(
+        &provider,
+        client.clone(),
+        &wallet,
+        entrypoint,
+        chain_id,
+        account,
         call_data,
-        // Use zero initial gas fields. Bundlers will fill these in `eth_estimateUserOperationGas`,
-        // and paymasters (ERC-7677) can still return stub data for estimation.
-        //
-        // Using large placeholders can cause paymaster policies to reject requests.
-        call_gas_limit: U256::zero(),
-        verification_gas_limit: U256::zero(),
-        pre_verification_gas: U256::zero(),
-        max_fee_per_gas,
-        max_priority_fee_per_gas,
-        paymaster_and_data: Bytes::from(Vec::new()),
-        signature: Bytes::from(vec![0u8; 65]),
-    };
-
-    let bundler = BundlerClient::new(args.bundler.clone());
-
-    // Optional paymaster (Milestone 6B: Alchemy Gas Manager via ERC-7677).
-    //
-    // Flow:
-    // 1) (optional) pm_getPaymasterStubData  -> set paymasterAndData (stub)
-    // 2) bundler gas estimate               -> set gas limits
-    // 3) (optional) pm_getPaymasterData     -> set paymasterAndData (final)
-    // 4) sign + send
-    let (paymaster, policy_id) = if args.sponsor_gas {
-        let url = args.paymaster_url.clone().ok_or_else(|| {
-            anyhow!("--sponsor-gas requires --paymaster-url (or OPENSUB_AA_PAYMASTER_URL)")
-        })?;
-        let policy_id = args.policy_id.clone().ok_or_else(|| {
-            anyhow!("--sponsor-gas requires --policy-id (or OPENSUB_AA_GAS_MANAGER_POLICY_ID)")
-        })?;
-
-        if args.fund_eth.is_some() {
-            outln!(
-                machine_mode,
-                "note: --sponsor-gas is enabled, so --fund-eth is usually not required (paymaster covers prefund)."
-            );
-        }
-
-        (Some(PaymasterClient::new(url)), Some(policy_id))
-    } else {
-        (None, None)
-    };
-
-    // If using a paymaster, fetch stub paymasterAndData BEFORE gas estimation.
-    if let (Some(pm), Some(pid)) = (paymaster.as_ref(), policy_id.as_ref()) {
-        outln!(
-            machine_mode,
-            "requesting paymaster stub data (pm_getPaymasterStubData)..."
-        );
-        let stub = pm
-            .get_paymaster_stub_data(
-                encoding::user_op_to_paymaster_json(&op),
-                entrypoint,
-                chain_id,
-                pid,
-                args.webhook_data.as_deref(),
-            )
-            .await
-            .context("pm_getPaymasterStubData failed")?;
-        op.paymaster_and_data = stub;
-    }
-
-    // Sign for estimation.
-    sign_userop(client.clone(), entrypoint, &mut op, &wallet).await?;
-
-    // Estimate gas via bundler.
-    let est = bundler
-        .estimate_user_operation_gas(encoding::user_op_to_json(&op), entrypoint)
-        .await
-        .context("bundler gas estimate failed")?;
-
-    op.call_gas_limit = est.call_gas_limit;
-    op.verification_gas_limit = est.verification_gas_limit;
-    op.pre_verification_gas = est.pre_verification_gas;
-
-    // If using a paymaster, fetch FINAL paymasterAndData AFTER gas estimation.
-    if let (Some(pm), Some(pid)) = (paymaster.as_ref(), policy_id.as_ref()) {
-        outln!(
-            machine_mode,
-            "requesting paymaster final data (pm_getPaymasterData)..."
-        );
-        let final_pm = pm
-            .get_paymaster_data(
-                encoding::user_op_to_paymaster_json(&op),
-                entrypoint,
-                chain_id,
-                pid,
-                args.webhook_data.as_deref(),
-            )
-            .await
-            .context("pm_getPaymasterData failed")?;
-        op.paymaster_and_data = final_pm;
-    }
-
-    // Re-sign with final gas limits + final paymasterAndData.
-    sign_userop(client.clone(), entrypoint, &mut op, &wallet).await?;
-
-    outln!(
+        init_code,
+        nonce,
+        &tx_args,
         machine_mode,
-        "\nUserOperation (final):\n{}",
-        serde_json::to_string_pretty(&encoding::user_op_to_json(&op))?
-    );
+    )
+    .await?;
 
-    if args.dry_run {
-        outln!(machine_mode, "\n--dry-run set: not sending user operation.");
+    if !got_receipt {
         return Ok(());
     }
 
-    // Send.
-    let user_op_hash = bundler
-        .send_user_operation(encoding::user_op_to_json(&op), entrypoint)
-        .await
-        .context("bundler send failed")?;
-
-    outln!(
-        machine_mode,
-        "\nuserOpHash: {}",
-        encoding::fmt_h256(user_op_hash)
-    );
-
-    if args.no_wait {
-        outln!(machine_mode, "--no-wait set: not waiting for receipt.");
-        return Ok(());
-    }
-
-    let receipt = bundler
-        .wait_user_operation_receipt(user_op_hash, Duration::from_secs(args.max_wait_seconds))
-        .await
-        .context("failed waiting for userOp receipt")?;
-
-    outln!(
-        machine_mode,
-        "\nUserOp receipt:\n{}",
-        serde_json::to_string_pretty(&receipt)?
-    );
-
-    // Best-effort: print subscription id.
+    // Best-effort: print subscription id after receipt.
     let sub_id = active_subscription_of(client.clone(), dep.open_sub, dep.plan_id, account).await?;
     outln!(
         machine_mode,
@@ -617,6 +725,357 @@ async fn cmd_subscribe(args: SubscribeArgs) -> Result<()> {
         .await
         .unwrap_or(false);
     outln!(machine_mode, "hasAccess({}) => {}", sub_id, has_access);
+
+    Ok(())
+}
+
+async fn cmd_cancel(args: CancelArgs) -> Result<()> {
+    let dep = load_deployment(&args.common.deployment, args.common.rpc.clone())?;
+
+    let mode = stdout_mode(&args.common)?;
+    let machine_mode = mode != StdoutMode::Normal;
+
+    let provider =
+        Provider::<Http>::try_from(dep.rpc_url.as_str())?.interval(Duration::from_millis(350));
+
+    let chain_id = provider.get_chainid().await?.as_u64();
+    if chain_id != dep.chain_id {
+        return Err(anyhow!(
+            "chainId mismatch: deployment has {}, RPC returned {}",
+            dep.chain_id,
+            chain_id
+        ));
+    }
+
+    let entrypoint =
+        Address::from_str(&args.common.entrypoint).context("invalid --entrypoint address")?;
+    let factory_addr =
+        Address::from_str(&args.common.factory).context("invalid --factory address")?;
+
+    let (wallet, owner, owner_key_path) = load_or_generate_owner(&args.common, chain_id)?;
+    let owner_env_path = owner_key_path.map(|p| p.canonicalize().unwrap_or(p));
+
+    if mode == StdoutMode::OwnerAddress {
+        println!("{}", owner);
+    }
+
+    if let Some(p) = owner_env_path.as_ref() {
+        match mode {
+            StdoutMode::OwnerEnvPath => {
+                println!("{}", p.display());
+                eprintln!("generated new owner key; saved to {}", p.display());
+            }
+            StdoutMode::Json => {
+                eprintln!("generated new owner key; saved to {}", p.display());
+            }
+            _ => {
+                outln!(
+                    machine_mode,
+                    "generated new owner key; saved to {}",
+                    p.display()
+                );
+            }
+        }
+    }
+
+    let client = Arc::new(SignerMiddleware::new(provider.clone(), wallet.clone()));
+
+    let salt = U256::from(args.common.salt);
+    let (account, deployed) =
+        compute_account_address(client.clone(), factory_addr, owner, salt).await?;
+
+    if mode == StdoutMode::SmartAccountAddress {
+        println!("{}", account);
+    }
+
+    if mode == StdoutMode::Json {
+        let env_path = owner_env_path.as_ref().map(|p| p.display().to_string());
+        let out = serde_json::json!({
+            "owner": encoding::fmt_address(owner),
+            "smartAccount": encoding::fmt_address(account),
+            "envPath": env_path,
+        });
+        println!("{}", out);
+    }
+
+    outln!(
+        machine_mode,
+        "smartAccount: {} (deployed={})",
+        account,
+        deployed
+    );
+
+    let sub_id = U256::from(args.subscription_id);
+    let open_sub_abi = AbiParser::default()
+        .parse(&["function cancel(uint256 subscriptionId, bool atPeriodEnd)"])?;
+    let open_sub = Contract::new(dep.open_sub, open_sub_abi, client.clone());
+    let cancel_calldata = open_sub
+        .method::<_, ()>("cancel", (sub_id, args.at_period_end))?
+        .calldata()
+        .ok_or_else(|| anyhow!("failed to build cancel calldata"))?;
+
+    let (call_data, init_code, nonce) = build_single_call_payload(
+        client.clone(),
+        entrypoint,
+        factory_addr,
+        owner,
+        salt,
+        account,
+        deployed,
+        dep.open_sub,
+        cancel_calldata,
+    )
+    .await?;
+
+    let tx_args: TxArgs = (&args).into();
+    let _got_receipt = send_userop(
+        &provider,
+        client.clone(),
+        &wallet,
+        entrypoint,
+        chain_id,
+        account,
+        call_data,
+        init_code,
+        nonce,
+        &tx_args,
+        machine_mode,
+    )
+    .await?;
+
+    Ok(())
+}
+
+async fn cmd_resume(args: ResumeArgs) -> Result<()> {
+    let dep = load_deployment(&args.common.deployment, args.common.rpc.clone())?;
+
+    let mode = stdout_mode(&args.common)?;
+    let machine_mode = mode != StdoutMode::Normal;
+
+    let provider =
+        Provider::<Http>::try_from(dep.rpc_url.as_str())?.interval(Duration::from_millis(350));
+
+    let chain_id = provider.get_chainid().await?.as_u64();
+    if chain_id != dep.chain_id {
+        return Err(anyhow!(
+            "chainId mismatch: deployment has {}, RPC returned {}",
+            dep.chain_id,
+            chain_id
+        ));
+    }
+
+    let entrypoint =
+        Address::from_str(&args.common.entrypoint).context("invalid --entrypoint address")?;
+    let factory_addr =
+        Address::from_str(&args.common.factory).context("invalid --factory address")?;
+
+    let (wallet, owner, owner_key_path) = load_or_generate_owner(&args.common, chain_id)?;
+    let owner_env_path = owner_key_path.map(|p| p.canonicalize().unwrap_or(p));
+
+    if mode == StdoutMode::OwnerAddress {
+        println!("{}", owner);
+    }
+
+    if let Some(p) = owner_env_path.as_ref() {
+        match mode {
+            StdoutMode::OwnerEnvPath => {
+                println!("{}", p.display());
+                eprintln!("generated new owner key; saved to {}", p.display());
+            }
+            StdoutMode::Json => {
+                eprintln!("generated new owner key; saved to {}", p.display());
+            }
+            _ => {
+                outln!(
+                    machine_mode,
+                    "generated new owner key; saved to {}",
+                    p.display()
+                );
+            }
+        }
+    }
+
+    let client = Arc::new(SignerMiddleware::new(provider.clone(), wallet.clone()));
+
+    let salt = U256::from(args.common.salt);
+    let (account, deployed) =
+        compute_account_address(client.clone(), factory_addr, owner, salt).await?;
+
+    if mode == StdoutMode::SmartAccountAddress {
+        println!("{}", account);
+    }
+
+    if mode == StdoutMode::Json {
+        let env_path = owner_env_path.as_ref().map(|p| p.display().to_string());
+        let out = serde_json::json!({
+            "owner": encoding::fmt_address(owner),
+            "smartAccount": encoding::fmt_address(account),
+            "envPath": env_path,
+        });
+        println!("{}", out);
+    }
+
+    outln!(
+        machine_mode,
+        "smartAccount: {} (deployed={})",
+        account,
+        deployed
+    );
+
+    let sub_id = U256::from(args.subscription_id);
+    let open_sub_abi =
+        AbiParser::default().parse(&["function unscheduleCancel(uint256 subscriptionId)"])?;
+    let open_sub = Contract::new(dep.open_sub, open_sub_abi, client.clone());
+    let resume_calldata = open_sub
+        .method::<_, ()>("unscheduleCancel", (sub_id,))?
+        .calldata()
+        .ok_or_else(|| anyhow!("failed to build unscheduleCancel calldata"))?;
+
+    let (call_data, init_code, nonce) = build_single_call_payload(
+        client.clone(),
+        entrypoint,
+        factory_addr,
+        owner,
+        salt,
+        account,
+        deployed,
+        dep.open_sub,
+        resume_calldata,
+    )
+    .await?;
+
+    let tx_args: TxArgs = (&args).into();
+    let _got_receipt = send_userop(
+        &provider,
+        client.clone(),
+        &wallet,
+        entrypoint,
+        chain_id,
+        account,
+        call_data,
+        init_code,
+        nonce,
+        &tx_args,
+        machine_mode,
+    )
+    .await?;
+
+    Ok(())
+}
+
+async fn cmd_collect(args: CollectArgs) -> Result<()> {
+    let dep = load_deployment(&args.common.deployment, args.common.rpc.clone())?;
+
+    let mode = stdout_mode(&args.common)?;
+    let machine_mode = mode != StdoutMode::Normal;
+
+    let provider =
+        Provider::<Http>::try_from(dep.rpc_url.as_str())?.interval(Duration::from_millis(350));
+
+    let chain_id = provider.get_chainid().await?.as_u64();
+    if chain_id != dep.chain_id {
+        return Err(anyhow!(
+            "chainId mismatch: deployment has {}, RPC returned {}",
+            dep.chain_id,
+            chain_id
+        ));
+    }
+
+    let entrypoint =
+        Address::from_str(&args.common.entrypoint).context("invalid --entrypoint address")?;
+    let factory_addr =
+        Address::from_str(&args.common.factory).context("invalid --factory address")?;
+
+    let (wallet, owner, owner_key_path) = load_or_generate_owner(&args.common, chain_id)?;
+    let owner_env_path = owner_key_path.map(|p| p.canonicalize().unwrap_or(p));
+
+    if mode == StdoutMode::OwnerAddress {
+        println!("{}", owner);
+    }
+
+    if let Some(p) = owner_env_path.as_ref() {
+        match mode {
+            StdoutMode::OwnerEnvPath => {
+                println!("{}", p.display());
+                eprintln!("generated new owner key; saved to {}", p.display());
+            }
+            StdoutMode::Json => {
+                eprintln!("generated new owner key; saved to {}", p.display());
+            }
+            _ => {
+                outln!(
+                    machine_mode,
+                    "generated new owner key; saved to {}",
+                    p.display()
+                );
+            }
+        }
+    }
+
+    let client = Arc::new(SignerMiddleware::new(provider.clone(), wallet.clone()));
+
+    let salt = U256::from(args.common.salt);
+    let (account, deployed) =
+        compute_account_address(client.clone(), factory_addr, owner, salt).await?;
+
+    if mode == StdoutMode::SmartAccountAddress {
+        println!("{}", account);
+    }
+
+    if mode == StdoutMode::Json {
+        let env_path = owner_env_path.as_ref().map(|p| p.display().to_string());
+        let out = serde_json::json!({
+            "owner": encoding::fmt_address(owner),
+            "smartAccount": encoding::fmt_address(account),
+            "envPath": env_path,
+        });
+        println!("{}", out);
+    }
+
+    outln!(
+        machine_mode,
+        "smartAccount: {} (deployed={})",
+        account,
+        deployed
+    );
+
+    let sub_id = U256::from(args.subscription_id);
+    let open_sub_abi =
+        AbiParser::default().parse(&["function collect(uint256 subscriptionId) returns (uint256,uint256)"])?;
+    let open_sub = Contract::new(dep.open_sub, open_sub_abi, client.clone());
+    let collect_calldata = open_sub
+        .method::<_, (U256, U256)>("collect", (sub_id,))?
+        .calldata()
+        .ok_or_else(|| anyhow!("failed to build collect calldata"))?;
+
+    let (call_data, init_code, nonce) = build_single_call_payload(
+        client.clone(),
+        entrypoint,
+        factory_addr,
+        owner,
+        salt,
+        account,
+        deployed,
+        dep.open_sub,
+        collect_calldata,
+    )
+    .await?;
+
+    let tx_args: TxArgs = (&args).into();
+    let _got_receipt = send_userop(
+        &provider,
+        client.clone(),
+        &wallet,
+        entrypoint,
+        chain_id,
+        account,
+        call_data,
+        init_code,
+        nonce,
+        &tx_args,
+        machine_mode,
+    )
+    .await?;
 
     Ok(())
 }
@@ -800,6 +1259,47 @@ async fn read_plan<M: Middleware + 'static>(
     Ok((token, price, active))
 }
 
+async fn fetch_entrypoint_nonce<M: Middleware + 'static>(
+    client: Arc<M>,
+    entrypoint: Address,
+    account: Address,
+) -> Result<U256> {
+    let entrypoint_abi = AbiParser::default()
+        .parse(&["function getNonce(address sender, uint192 key) view returns (uint256)"])?;
+    let entrypoint_c = Contract::new(entrypoint, entrypoint_abi, client.clone());
+
+    let nonce: U256 = entrypoint_c
+        .method("getNonce", (account, U256::zero()))?
+        .call()
+        .await
+        .context("entryPoint.getNonce failed")?;
+    Ok(nonce)
+}
+
+async fn build_init_code<M: Middleware + 'static>(
+    client: Arc<M>,
+    factory: Address,
+    owner: Address,
+    salt: U256,
+    deployed: bool,
+) -> Result<Bytes> {
+    if deployed {
+        return Ok(Bytes::from(Vec::new()));
+    }
+    let factory_abi = AbiParser::default()
+        .parse(&["function createAccount(address owner, uint256 salt) returns (address)"])?;
+    let factory_c = Contract::new(factory, factory_abi, client.clone());
+    let create_calldata = factory_c
+        .method::<_, Address>("createAccount", (owner, salt))?
+        .calldata()
+        .ok_or_else(|| anyhow!("failed to build createAccount calldata"))?;
+
+    let mut v = Vec::with_capacity(20 + create_calldata.len());
+    v.extend_from_slice(factory.as_bytes());
+    v.extend_from_slice(create_calldata.as_ref());
+    Ok(Bytes::from(v))
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn build_userop_payload<M: Middleware + 'static>(
     client: Arc<M>,
@@ -815,32 +1315,8 @@ async fn build_userop_payload<M: Middleware + 'static>(
     mint_amount: Option<U256>,
     allowance_amount: U256,
 ) -> Result<(Bytes, Bytes, U256)> {
-    let entrypoint_abi = AbiParser::default()
-        .parse(&["function getNonce(address sender, uint192 key) view returns (uint256)"])?;
-    let entrypoint_c = Contract::new(entrypoint, entrypoint_abi, client.clone());
-
-    let nonce: U256 = entrypoint_c
-        .method("getNonce", (account, U256::zero()))?
-        .call()
-        .await
-        .context("entryPoint.getNonce failed")?;
-
-    let init_code = if deployed {
-        Bytes::from(Vec::new())
-    } else {
-        let factory_abi = AbiParser::default()
-            .parse(&["function createAccount(address owner, uint256 salt) returns (address)"])?;
-        let factory_c = Contract::new(factory, factory_abi, client.clone());
-        let create_calldata = factory_c
-            .method::<_, Address>("createAccount", (owner, salt))?
-            .calldata()
-            .ok_or_else(|| anyhow!("failed to build createAccount calldata"))?;
-
-        let mut v = Vec::with_capacity(20 + create_calldata.len());
-        v.extend_from_slice(factory.as_bytes());
-        v.extend_from_slice(create_calldata.as_ref());
-        Bytes::from(v)
-    };
+    let nonce = fetch_entrypoint_nonce(client.clone(), entrypoint, account).await?;
+    let init_code = build_init_code(client.clone(), factory, owner, salt, deployed).await?;
 
     // Token call data (optionally mint, then approve).
     // NOTE: `mint` is demo-only; it will revert on real tokens.
@@ -899,6 +1375,193 @@ async fn build_userop_payload<M: Middleware + 'static>(
         .ok_or_else(|| anyhow!("failed to build executeBatch calldata"))?;
 
     Ok((call_data, init_code, nonce))
+}
+
+async fn build_single_call_payload<M: Middleware + 'static>(
+    client: Arc<M>,
+    entrypoint: Address,
+    factory: Address,
+    owner: Address,
+    salt: U256,
+    account: Address,
+    deployed: bool,
+    target: Address,
+    target_calldata: Bytes,
+) -> Result<(Bytes, Bytes, U256)> {
+    let nonce = fetch_entrypoint_nonce(client.clone(), entrypoint, account).await?;
+    let init_code = build_init_code(client.clone(), factory, owner, salt, deployed).await?;
+
+    // SimpleAccount.execute(address dest, uint256 value, bytes func)
+    let account_abi = AbiParser::default()
+        .parse(&["function execute(address dest, uint256 value, bytes func)"])?;
+    let account_c = Contract::new(account, account_abi, client);
+    let call_data = account_c
+        .method::<_, ()>("execute", (target, U256::zero(), target_calldata))?
+        .calldata()
+        .ok_or_else(|| anyhow!("failed to build execute calldata"))?;
+
+    Ok((call_data, init_code, nonce))
+}
+
+async fn send_userop<M: Middleware + 'static>(
+    provider: &Provider<Http>,
+    client: Arc<M>,
+    wallet: &LocalWallet,
+    entrypoint: Address,
+    chain_id: u64,
+    account: Address,
+    call_data: Bytes,
+    init_code: Bytes,
+    nonce: U256,
+    args: &TxArgs,
+    machine_mode: bool,
+) -> Result<bool> {
+    // Fee data (fallback to gas price for providers without EIP-1559 helpers).
+    let gas_price = provider
+        .get_gas_price()
+        .await
+        .context("failed to fetch gas price")?;
+    let bps = args.gas_multiplier_bps.max(1);
+    let max_priority_fee_per_gas =
+        gas_price * U256::from(bps) / U256::from(10_000u64);
+    let max_fee_per_gas = max_priority_fee_per_gas;
+
+    if bps != 10_000 {
+        tracing::info!(
+            "gas multiplier applied: {} bps (maxFeePerGas={}, maxPriorityFeePerGas={})",
+            bps,
+            max_fee_per_gas,
+            max_priority_fee_per_gas
+        );
+    }
+
+    // Initial gas guesses (will be overwritten by bundler estimate).
+    let mut op = UserOperation {
+        sender: account,
+        nonce,
+        init_code,
+        call_data,
+        // Use zero initial gas fields. Bundlers will fill these in `eth_estimateUserOperationGas`,
+        // and paymasters (ERC-7677) can still return stub data for estimation.
+        call_gas_limit: U256::zero(),
+        verification_gas_limit: U256::zero(),
+        pre_verification_gas: U256::zero(),
+        max_fee_per_gas,
+        max_priority_fee_per_gas,
+        paymaster_and_data: Bytes::from(Vec::new()),
+        signature: Bytes::from(vec![0u8; 65]),
+    };
+
+    let bundler = BundlerClient::new(args.bundler.clone());
+
+    // Optional paymaster (Milestone 6B: Alchemy Gas Manager via ERC-7677).
+    let (paymaster, policy_id) = if args.sponsor_gas {
+        let url = args.paymaster_url.clone().ok_or_else(|| {
+            anyhow!("--sponsor-gas requires --paymaster-url (or OPENSUB_AA_PAYMASTER_URL)")
+        })?;
+        let policy_id = args.policy_id.clone().ok_or_else(|| {
+            anyhow!("--sponsor-gas requires --policy-id (or OPENSUB_AA_GAS_MANAGER_POLICY_ID)")
+        })?;
+
+        (Some(PaymasterClient::new(url)), Some(policy_id))
+    } else {
+        (None, None)
+    };
+
+    // If using a paymaster, fetch stub paymasterAndData BEFORE gas estimation.
+    if let (Some(pm), Some(pid)) = (paymaster.as_ref(), policy_id.as_ref()) {
+        outln!(
+            machine_mode,
+            "requesting paymaster stub data (pm_getPaymasterStubData)..."
+        );
+        let stub = pm
+            .get_paymaster_stub_data(
+                encoding::user_op_to_paymaster_json(&op),
+                entrypoint,
+                chain_id,
+                pid,
+                args.webhook_data.as_deref(),
+            )
+            .await
+            .context("pm_getPaymasterStubData failed")?;
+        op.paymaster_and_data = stub;
+    }
+
+    // Sign for estimation.
+    sign_userop(client.clone(), entrypoint, &mut op, wallet).await?;
+
+    // Estimate gas via bundler.
+    let est = bundler
+        .estimate_user_operation_gas(encoding::user_op_to_json(&op), entrypoint)
+        .await
+        .context("bundler gas estimate failed")?;
+
+    op.call_gas_limit = est.call_gas_limit;
+    op.verification_gas_limit = est.verification_gas_limit;
+    op.pre_verification_gas = est.pre_verification_gas;
+
+    // If using a paymaster, fetch FINAL paymasterAndData AFTER gas estimation.
+    if let (Some(pm), Some(pid)) = (paymaster.as_ref(), policy_id.as_ref()) {
+        outln!(
+            machine_mode,
+            "requesting paymaster final data (pm_getPaymasterData)..."
+        );
+        let final_pm = pm
+            .get_paymaster_data(
+                encoding::user_op_to_paymaster_json(&op),
+                entrypoint,
+                chain_id,
+                pid,
+                args.webhook_data.as_deref(),
+            )
+            .await
+            .context("pm_getPaymasterData failed")?;
+        op.paymaster_and_data = final_pm;
+    }
+
+    // Re-sign with final gas limits + final paymasterAndData.
+    sign_userop(client.clone(), entrypoint, &mut op, wallet).await?;
+
+    outln!(
+        machine_mode,
+        "\nUserOperation (final):\n{}",
+        serde_json::to_string_pretty(&encoding::user_op_to_json(&op))?
+    );
+
+    if args.dry_run {
+        outln!(machine_mode, "\n--dry-run set: not sending user operation.");
+        return Ok(false);
+    }
+
+    // Send.
+    let user_op_hash = bundler
+        .send_user_operation(encoding::user_op_to_json(&op), entrypoint)
+        .await
+        .context("bundler send failed")?;
+
+    outln!(
+        machine_mode,
+        "\nuserOpHash: {}",
+        encoding::fmt_h256(user_op_hash)
+    );
+
+    if args.no_wait {
+        outln!(machine_mode, "--no-wait set: not waiting for receipt.");
+        return Ok(false);
+    }
+
+    let receipt = bundler
+        .wait_user_operation_receipt(user_op_hash, Duration::from_secs(args.max_wait_seconds))
+        .await
+        .context("failed waiting for userOp receipt")?;
+
+    outln!(
+        machine_mode,
+        "\nUserOp receipt:\n{}",
+        serde_json::to_string_pretty(&receipt)?
+    );
+
+    Ok(true)
 }
 
 async fn sign_userop<M: Middleware + 'static>(

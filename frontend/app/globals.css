@@ -42,6 +42,15 @@ code {
   background: #fff;
 }
 
+.banner {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.banner strong {
+  color: #92400e;
+}
+
 .muted {
   color: #6b7280;
 }
@@ -79,4 +88,19 @@ code {
   border: 1px solid #d1d5db;
   background: #f9fafb;
   font-size: 12px;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #d1d5db;
+  border-top-color: #111827;
+  border-radius: 999px;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

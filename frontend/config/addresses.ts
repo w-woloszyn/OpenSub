@@ -8,6 +8,7 @@ export const addresses = {
     chainName: "anvil",
     chainId: 31337,
     openSub: "0x0000000000000000000000000000000000000000",
+    defaultPlanId: 1n,
     // Start block for event log scanning.
     deployBlock: 0n,
   },
@@ -15,6 +16,8 @@ export const addresses = {
     chainName: "base-sepolia",
     chainId: 84532,
     openSub: "0x27eD037baB2A178dCDD600Abb78E3C6165C3B57c",
+    // PlanId 2 is the 60-second demo plan.
+    defaultPlanId: 2n,
     // Safe lower bound from deployments/base-sepolia.json
     deployBlock: 37718658n,
   },

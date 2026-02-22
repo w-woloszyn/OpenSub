@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useAccount, useChainId, usePublicClient, useWriteContract, useReadContract } from "wagmi";
+import { parseUnits } from "viem";
 
 import { openSubAbi } from "@/abi/openSubAbi";
 import { erc20Abi } from "@/abi/erc20Abi";
@@ -64,6 +65,7 @@ export default function SubscriberPage() {
   const [lastTx, setLastTx] = useState<string>("");
   const [busy, setBusy] = useState<boolean>(false);
   const [errMsg, setErrMsg] = useState<string>("");
+  const [mintHuman, setMintHuman] = useState<string>("10");
 
   const plan = useReadContract({
     address: openSub,
@@ -88,6 +90,13 @@ export default function SubscriberPage() {
   const planTokenConfigured = isConfiguredAddress(planTokenAddr);
 
   const targetAllowance = useMemo(() => planPrice * periodsBig, [planPrice, periodsBig]);
+  const mintAmountRaw = useMemo(() => {
+    try {
+      return parseUnits(mintHuman, tokenMeta.decimals);
+    } catch {
+      return 0n;
+    }
+  }, [mintHuman, tokenMeta.decimals]);
 
   const allowance = useReadContract({
     address: planTokenAddr as `0x${string}`,
@@ -223,6 +232,13 @@ export default function SubscriberPage() {
           Implements <code>docs/UI_STATE_MACHINE.md</code>. If a subscription is <b>Active</b> but expired, the correct
           action is <b>Renew (collect)</b> — not resubscribe.
         </p>
+        <ol className="muted" style={{ marginTop: 10 }}>
+          <li>Connect wallet and switch to the selected chain.</li>
+          <li>Enter a planId (default: 1).</li>
+          <li>Mint demo tokens (if needed), then click <b>Approve</b>.</li>
+          <li>Click <b>Subscribe</b> (first charge happens immediately).</li>
+          <li>When <code>isDue=true</code>, click <b>Renew (collect)</b>.</li>
+        </ol>
 
         <div className="row">
           <div>
@@ -303,6 +319,43 @@ export default function SubscriberPage() {
               </div>
             </div>
           </div>
+        )}
+        {isConnected && !mismatch && (
+          <p className="muted" style={{ marginTop: 8 }}>
+            Note: this balance is the plan token (not ETH). You still need ETH for gas.
+          </p>
+        )}
+        {isConnected && !mismatch && planTokenConfigured && (
+          <>
+            <div className="row" style={{ marginTop: 12 }}>
+              <div>
+                <div className="muted">Mint demo tokens</div>
+                <input
+                  className="input"
+                  value={mintHuman}
+                  onChange={(e) => setMintHuman(e.target.value)}
+                  placeholder="10"
+                />
+              </div>
+              <button
+                className="btn"
+                disabled={busy || mintAmountRaw === 0n}
+                onClick={() =>
+                  runTx("mint", {
+                    address: planTokenAddr as `0x${string}`,
+                    abi: erc20Abi,
+                    functionName: "mint",
+                    args: [address as `0x${string}`, mintAmountRaw],
+                  })
+                }
+              >
+                Mint {tokenMeta.symbol}
+              </button>
+            </div>
+            <p className="muted" style={{ marginTop: 8 }}>
+              Demo-only: token minting works on the mock token (mUSDC). Real tokens will revert.
+            </p>
+          </>
         )}
       </div>
 

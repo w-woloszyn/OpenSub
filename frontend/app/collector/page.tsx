@@ -139,6 +139,11 @@ export default function CollectorPage() {
           Anyone can call <code>collect(subscriptionId)</code> when a subscription is due, and earn the configured
           collector fee.
         </p>
+        <ol className="muted" style={{ marginTop: 10 }}>
+          <li>Enter a subscriptionId (from Subscriber page or Events).</li>
+          <li>If <code>isDue=true</code>, click <b>Collect</b>.</li>
+          <li>If not due, the transaction will revert.</li>
+        </ol>
       </div>
 
       <div className="card">

@@ -2,22 +2,15 @@ import { NextResponse } from "next/server";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
-
-import { openSubAbi } from "@/abi/openSubAbi";
 
 // Required because this route spawns a local process (the Rust AA CLI).
 export const runtime = "nodejs";
 
 type Req = {
-  // Demo inputs
   salt?: number;
-  allowancePeriods?: number;
-  mintAmountRaw?: string; // base units (e.g. 10_000_000 for 10 mUSDC)
+  subscriptionId?: number | string;
   ownerPrivateKey?: string;
   smartAccount?: string;
-  gasMultiplierBps?: number;
 };
 
 function findRepoRoot(start: string): string {
@@ -81,7 +74,6 @@ async function runBinary(args: {
 
 export async function POST(req: Request) {
   try {
-    // Validate required env for 6B flow.
     mustEnv("OPENSUB_AA_BUNDLER_URL");
     mustEnv("OPENSUB_AA_ENTRYPOINT");
     mustEnv("OPENSUB_AA_FACTORY");
@@ -90,14 +82,20 @@ export async function POST(req: Request) {
 
     const body = (await req.json().catch(() => ({}))) as Req;
     const salt = body.salt ?? 0;
-    const allowancePeriods = body.allowancePeriods ?? 12;
-    const mintAmountRaw = body.mintAmountRaw ?? "10000000";
     const ownerPrivateKey = body.ownerPrivateKey?.trim();
     const smartAccountHint = body.smartAccount?.trim();
+    const subIdRaw = body.subscriptionId ?? 0;
+    const subId = Number(subIdRaw);
 
     if (!ownerPrivateKey) {
       return NextResponse.json(
         { ok: false, error: "Missing ownerPrivateKey (generate one in the browser first)." },
+        { status: 400 }
+      );
+    }
+    if (!Number.isFinite(subId) || subId <= 0) {
+      return NextResponse.json(
+        { ok: false, error: "Missing or invalid subscriptionId." },
         { status: 400 }
       );
     }
@@ -125,29 +123,19 @@ export async function POST(req: Request) {
       );
     }
 
-    const dep = JSON.parse(fs.readFileSync(deploymentPath, "utf8")) as {
-      rpc?: string;
-      openSub: string;
-      planId: number;
-      chainId: number;
-    };
-
-    // Run: sponsored subscribe with a provided owner key (client-generated).
     const argv = [
-      "subscribe",
+      "collect",
       "--deployment",
       deploymentPath,
       "--json",
       "--salt",
       String(salt),
-      "--allowance-periods",
-      String(allowancePeriods),
-      "--mint",
-      mintAmountRaw,
+      "--subscription-id",
+      String(subId),
       "--sponsor-gas",
       "--no-wait",
     ];
-    const gasMult = body.gasMultiplierBps ?? Number(process.env.OPENSUB_AA_GAS_MULTIPLIER_BPS);
+    const gasMult = process.env.OPENSUB_AA_GAS_MULTIPLIER_BPS;
     if (gasMult && Number(gasMult) > 0) {
       argv.push("--gas-multiplier-bps", String(Number(gasMult)));
     }
@@ -164,14 +152,12 @@ export async function POST(req: Request) {
     } catch (e: any) {
       const msg = e?.message ?? String(e);
       if (msg.includes("timed out waiting for userOp receipt")) {
-        const userOpHashMatch = msg.match(/userOpHash:\s*(0x[a-fA-F0-9]{64})/);
-        const smartAccountMatch = msg.match(/smartAccount:\s*(0x[a-fA-F0-9]{40})/);
         return NextResponse.json({
           ok: true,
           pending: true,
-          userOpHash: userOpHashMatch?.[1] ?? null,
+          userOpHash: extractUserOpHash(msg),
           txHash: extractTxHash(msg),
-          smartAccount: smartAccountMatch?.[1] ?? smartAccountHint ?? null,
+          smartAccount: smartAccountHint ?? null,
           error: "Timed out waiting for userOp receipt. Use 'Check UserOp status' or the explorer links.",
           logs: msg,
         });
@@ -184,51 +170,21 @@ export async function POST(req: Request) {
       smartAccount: string;
       envPath: string | null;
     };
+
     const userOpHash = extractUserOpHash(stderr);
     const txHash = extractTxHash(stderr);
-
-    // Post-check on-chain state.
-    const rpcUrl = process.env.OPENSUB_AA_RPC_URL ?? dep.rpc ?? "https://sepolia.base.org";
-    const client = createPublicClient({
-      chain: baseSepolia,
-      transport: http(rpcUrl),
-    });
-
-    const planId = BigInt(dep.planId);
-    const subId = (await client.readContract({
-      address: dep.openSub as `0x${string}`,
-      abi: openSubAbi,
-      functionName: "activeSubscriptionOf",
-      args: [planId, parsed.smartAccount as `0x${string}`],
-    })) as bigint;
-
-    const hasAccess = subId !== 0n
-      ? ((await client.readContract({
-          address: dep.openSub as `0x${string}`,
-          abi: openSubAbi,
-          functionName: "hasAccess",
-          args: [subId],
-        })) as boolean)
-      : false;
 
     return NextResponse.json({
       ok: true,
       pending: true,
-      deployment: { openSub: dep.openSub, planId: dep.planId, chainId: dep.chainId },
       result: {
         ...parsed,
-        subscriptionId: subId.toString(),
-        hasAccess,
         userOpHash,
         txHash,
       },
-      // stderr includes human-readable logs from the CLI. We include it because this is demo-only.
       logs: stderr,
     });
   } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, error: e?.message ?? String(e) },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: e?.message ?? String(e) }, { status: 500 });
   }
 }

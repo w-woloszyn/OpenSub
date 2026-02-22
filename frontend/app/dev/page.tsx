@@ -90,6 +90,10 @@ npm run dev
             Gas Manager policy too restrictive (e.g. doesn’t allow <code>mint</code> selector)
           </li>
         </ul>
+        <p className="muted" style={{ marginTop: 10 }}>
+          Demo security: the gasless page stores an AA owner key in <code>localStorage</code>. This is not production
+          safe — it’s just to keep the demo frictionless.
+        </p>
       </div>
     </main>
   );

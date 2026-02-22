@@ -1,1 +1,2 @@
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
+export const AA_ONLY_DEMO = process.env.NEXT_PUBLIC_AA_ONLY_DEMO === "1";

@@ -36,7 +36,19 @@ else:
 
 out_path = os.path.abspath(out_path)
 
-exclude_dirs = {".git", "out", "cache", "broadcast", ".secrets", "node_modules", "target"}
+exclude_dirs = {
+    ".git",
+    "out",
+    "cache",
+    "broadcast",
+    ".secrets",
+    "node_modules",
+    "target",
+    ".next",
+    "build",
+    "dist",
+    "coverage",
+}
 exclude_prefixes = {"keeper-rs/state"}
 exclude_files = {
     os.path.basename(out_path),
@@ -49,6 +61,9 @@ def is_excluded_file(name: str) -> bool:
     if name in exclude_files:
         return True
     if name.startswith(".env."):
+        return True
+    lower = name.lower()
+    if lower.endswith((".zip", ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tar.xz")):
         return True
     return False
 

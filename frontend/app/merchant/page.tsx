@@ -119,6 +119,18 @@ export default function MerchantPage() {
       </div>
 
       <div className="card">
+        <h3 style={{ marginTop: 0 }}>How to use this page</h3>
+        <ol className="muted" style={{ marginTop: 6 }}>
+          <li>Connect a wallet and switch to the selected chain.</li>
+          <li>Enter a planId to inspect an existing plan.</li>
+          <li>
+            Only the plan’s <b>merchant</b> can pause/unpause.
+          </li>
+          <li>Anyone can create a new plan (it becomes theirs).</li>
+        </ol>
+      </div>
+
+      <div className="card">
         <h3 style={{ marginTop: 0 }}>View / manage existing plan</h3>
         <div className="row">
           <div>

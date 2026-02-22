@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useAccount, useChainId, useConnect, useDisconnect, useSwitchChain } from "wagmi";
 import { chainForKey, type ChainKey } from "@/lib/demoChains";
 import { useSelectedChain } from "@/lib/selectedChain";
+import { AA_ONLY_DEMO } from "@/lib/constants";
 
 export function Nav() {
   const [selected, setSelected] = useSelectedChain();
@@ -29,17 +29,21 @@ export function Nav() {
           <label className="muted" htmlFor="chain">
             Chain
           </label>
-          <select
-            id="chain"
-            className="input"
-            value={selected}
-            onChange={(e) => setSelected(e.target.value as ChainKey)}
-          >
-            <option value="baseTestnet">Base Sepolia</option>
-            <option value="local">Local Anvil</option>
-          </select>
+          {AA_ONLY_DEMO ? (
+            <span className="badge">Base Sepolia (AA-only)</span>
+          ) : (
+            <select
+              id="chain"
+              className="input"
+              value={selected}
+              onChange={(e) => setSelected(e.target.value as ChainKey)}
+            >
+              <option value="baseTestnet">Base Sepolia</option>
+              <option value="local">Local Anvil</option>
+            </select>
+          )}
 
-          {isConnected ? (
+          {!AA_ONLY_DEMO && (isConnected ? (
             <>
               <span className="badge">{address?.slice(0, 6)}…{address?.slice(-4)}</span>
               {mismatch ? (
@@ -68,40 +72,18 @@ export function Nav() {
             >
               {isConnecting ? "Connecting…" : "Connect wallet"}
             </button>
-          )}
+          ))}
         </div>
       </div>
 
-      {mismatch && (
+      {mismatch && !AA_ONLY_DEMO && (
         <p className="muted" style={{ marginTop: 10 }}>
           Your wallet is on <code>{chainId}</code> but the UI is set to <code>{selectedChain.id}</code>. Click
           <b> Switch chain</b>.
         </p>
       )}
 
-      <div className="row" style={{ marginTop: 14 }}>
-        <Link className="btn" href="/">
-          Home
-        </Link>
-        <Link className="btn" href="/subscriber">
-          Subscriber
-        </Link>
-        <Link className="btn" href="/merchant">
-          Merchant
-        </Link>
-        <Link className="btn" href="/collector">
-          Collector
-        </Link>
-        <Link className="btn" href="/events">
-          Events
-        </Link>
-        <Link className="btn" href="/gasless">
-          Gasless (AA)
-        </Link>
-        <Link className="btn" href="/dev">
-          Dev Notes
-        </Link>
-      </div>
+      
     </div>
   );
 }
