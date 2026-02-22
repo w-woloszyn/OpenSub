@@ -642,387 +642,401 @@ export function GaslessContent() {
         </div>
       )}
 
-      <div className="card">
-        <h3 style={{ marginTop: 0 }}>Run gasless subscribe</h3>
-        <div className="row">
-          <div>
-            <div className="muted">AA owner (local)</div>
-            <div>
-              <code data-testid="owner-addr">{ownerAddr || "not generated"}</code>
-            </div>
-          </div>
-          <div>
-            <div className="muted">Smart account</div>
-            <div>
-              <code data-testid="smart-account">{smartAccount || "-"}</code>
-            </div>
-          </div>
-          <div className="row" style={{ gap: 8 }}>
-            <button className="btn" onClick={generateOwner}>
-              {ownerPk ? "Regenerate owner" : "Generate owner"}
-            </button>
-            {ownerPk && (
-              <button className="btn" onClick={resetOwner} data-testid="clear-owner">
-                Clear owner
+      <div className="split">
+        <div className="stack">
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>Your actions</h3>
+            <div className="row" style={{ alignItems: "center" }}>
+              <button className="btn" onClick={generateOwner}>
+                {ownerPk ? "Regenerate smart account" : "Create smart account"}
               </button>
+              {ownerPk && (
+                <button className="btn" onClick={resetOwner} data-testid="clear-owner">
+                  Reset account
+                </button>
+              )}
+              <button
+                className="btn btnPrimary"
+                disabled={busy || chainKey !== "baseTestnet" || !ownerPk || smartAccount.length !== 42}
+                onClick={run}
+                data-testid="run-subscribe"
+              >
+                {busy ? "Running…" : "Run sponsored subscribe"}
+              </button>
+              {busy && (
+                <span className="row" style={{ alignItems: "center", gap: 8 }}>
+                  <span className="spinner" />
+                  <span className="muted">Elapsed: {elapsed}s</span>
+                </span>
+              )}
+            </div>
+            {acctBusy && <p className="muted">Deriving smart account…</p>}
+            {acctErr && (
+              <p style={{ marginTop: 6 }}>
+                <b>Error:</b> <span className="muted">{acctErr}</span>
+              </p>
+            )}
+            {ownerPk && (
+              <p className="muted" style={{ marginTop: 6 }}>
+                This owner key lives in your browser storage. If you clear storage, you lose access to this smart
+                account.
+              </p>
+            )}
+            <div className="row" style={{ marginTop: 12 }}>
+              <div>
+                <div className="muted">Stage</div>
+                <div>
+                  <b data-testid="stage">{stage}</b>
+                </div>
+              </div>
+              <div>
+                <div className="muted">Subscription status</div>
+                <div data-testid="sub-status">
+                  {hasAccount && !hasPolled && !subId ? "Loading on-chain state…" : subStatus}
+                </div>
+              </div>
+              <div>
+                <div className="muted">subscriptionId</div>
+                <div data-testid="sub-id">{subId || "-"}</div>
+              </div>
+            </div>
+            {errMsg && (
+              <p style={{ marginTop: 10 }}>
+                <b>Error:</b> <span className="muted">{errMsg}</span>
+              </p>
+            )}
+          </div>
+
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>Story (what just happened)</h3>
+            <ul className="muted">
+              <li>
+                1) Generate a local AA owner key (stored in your browser): <b>{ownerAddr ? "done" : "pending"}</b>
+              </li>
+              <li>
+                2) Derive your smart account address: <b>{smartAccount.length === 42 ? "done" : "pending"}</b>
+              </li>
+              <li>
+                3) Sponsor a UserOp to mint ~10× the plan price to the smart account:{" "}
+                <b>{!hasRun ? "-" : busy ? "in progress" : resp ? "done" : "pending"}</b>
+              </li>
+              <li>
+                4) Grant OpenSub allowance to spend those tokens:{" "}
+                <b>{!hasRun ? "-" : tokenAllowance > 0n ? "done" : "pending"}</b>
+              </li>
+              <li>
+                5) Subscription created and active on-chain: <b>{!hasRun ? "-" : subId ? "done" : "pending"}</b>
+              </li>
+              <li>
+                6) Next renewal (paidThrough): <b>{!hasRun ? "-" : subId ? fmtTs(paidThrough) : "pending"}</b>
+              </li>
+            </ul>
+          </div>
+
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>Active subscription</h3>
+            {!hasAccount ? (
+              <p className="muted">Create a smart account to load subscription state.</p>
+            ) : !hasPolled && !subId ? (
+              <p className="muted">Loading on-chain state…</p>
+            ) : !subId ? (
+              <p className="muted">No active subscription yet.</p>
+            ) : (
+              <>
+                <div className="row">
+                  <div>
+                    <div className="muted">subscriptionId</div>
+                    <div>{subId}</div>
+                  </div>
+                  <div>
+                    <div className="muted">status</div>
+                    <div data-testid="sub-status-label">
+                      {isActionPending ? "Action pending…" : decodeStatus(subStatusNum)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="muted">paidThrough (current period end)</div>
+                    <div>{fmtTs(paidThrough)}</div>
+                  </div>
+                  <div>
+                    <div className="muted">next scheduled renewal</div>
+                    <div>{nextDue > 0n ? fmtTs(nextDue) : "-"}</div>
+                  </div>
+                  <div>
+                    <div className="muted">due in</div>
+                    <div>
+                      {nextDue > 0n && now > 0n
+                        ? isDue
+                          ? "due now"
+                          : fmtDuration(nextDue > now ? nextDue - now : 0n)
+                        : "-"}
+                    </div>
+                  </div>
+                  {isDue && overdueBy > 0n ? (
+                    <div>
+                      <div className="muted">overdue by</div>
+                      <div>{fmtDuration(overdueBy)}</div>
+                    </div>
+                  ) : null}
+                  <div>
+                    <div className="muted">isDue</div>
+                    <div data-testid="sub-is-due">{String(isDue)}</div>
+                  </div>
+                  <div>
+                    <div className="muted">lastChargedAt</div>
+                    <div>{fmtTs(lastChargedAt)}</div>
+                  </div>
+                </div>
+                {!hasPolled && (
+                  <p className="muted" style={{ marginTop: 6 }}>
+                    Refreshing on-chain state…
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>Manage subscription</h3>
+            {!subId ? (
+              <p className="muted">Run a gasless subscribe first to create a subscription.</p>
+            ) : (
+              <>
+                <p className="muted" style={{ marginTop: 0 }}>
+                  Note: in production, <b>renewals are handled by the keeper</b> (or any third-party collector), not the
+                  subscriber. Cancels/resumes are user actions.
+                </p>
+                <div className="row" style={{ gap: 10 }}>
+                  <button
+                    className="btn"
+                    disabled={actionBusy || busy || actionPending || chainKey !== "baseTestnet"}
+                    onClick={() => runAction("collect")}
+                    data-testid="action-collect"
+                  >
+                    {actionBusy ? "Working…" : "Collect now"}
+                  </button>
+                  <button
+                    className="btn"
+                    disabled={actionBusy || busy || actionPending || chainKey !== "baseTestnet"}
+                    onClick={() => runAction("cancel_now")}
+                    data-testid="action-cancel-now"
+                  >
+                    Cancel now
+                  </button>
+                  <button
+                    className="btn"
+                    disabled={actionBusy || busy || actionPending || chainKey !== "baseTestnet"}
+                    onClick={() => runAction("cancel_end")}
+                    data-testid="action-cancel-end"
+                  >
+                    Cancel at period end
+                  </button>
+                  <button
+                    className="btn"
+                    disabled={actionBusy || busy || actionPending || chainKey !== "baseTestnet"}
+                    onClick={() => runAction("resume")}
+                    data-testid="action-resume"
+                  >
+                    Resume auto-renew
+                  </button>
+                </div>
+                {actionPending && (
+                  <p className="muted" style={{ marginTop: 8 }}>
+                    Action pending on-chain. Wait for confirmation before sending another action.
+                  </p>
+                )}
+                <div className="row" style={{ marginTop: 12 }}>
+                  <div>
+                    <div className="muted">Action stage</div>
+                    <div>
+                      <b data-testid="action-stage">{actionStage}</b>
+                    </div>
+                  </div>
+                  {actionBusy && (
+                    <span className="row" style={{ alignItems: "center", gap: 8 }}>
+                      <span className="spinner" />
+                      <span className="muted">Working…</span>
+                    </span>
+                  )}
+                </div>
+                {actionErr && (
+                  <p style={{ marginTop: 10 }}>
+                    <b>Error:</b> <span className="muted">{actionErr}</span>
+                  </p>
+                )}
+                {actionLogs && (
+                  <details style={{ marginTop: 8 }}>
+                    <summary data-testid="action-logs-toggle">Action CLI logs (stderr)</summary>
+                    <pre style={{ whiteSpace: "pre-wrap" }} data-testid="action-logs">
+                      {actionLogs}
+                    </pre>
+                  </details>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>Your balance</h3>
+            {!hasAccount ? (
+              <p className="muted">Create a smart account to see balances.</p>
+            ) : !hasPolled && tokenBalance === 0n && tokenAllowance === 0n && planPrice === 0n && planInterval === 0n ? (
+              <p className="muted">Loading on-chain state…</p>
+            ) : (
+              <>
+                <div className="row">
+                  <div>
+                    <div className="muted">Balance</div>
+                    <div>
+                      {fmtUnits(tokenBalance, tokenMeta.decimals)} {tokenMeta.symbol}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="muted">Spending allowance</div>
+                    <div>
+                      {fmtUnits(tokenAllowance, tokenMeta.decimals)} {tokenMeta.symbol}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="muted">Plan price</div>
+                    <div>
+                      {fmtUnits(planPrice, tokenMeta.decimals)} {tokenMeta.symbol}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="muted">Interval</div>
+                    <div>{planInterval ? `${planInterval.toString()}s` : "-"}</div>
+                  </div>
+                </div>
+                {!hasPolled && (
+                  <p className="muted" style={{ marginTop: 6 }}>
+                    Refreshing on-chain state…
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
-        {acctBusy && <p className="muted">Deriving smart account…</p>}
-        {acctErr && (
-          <p style={{ marginTop: 6 }}>
-            <b>Error:</b> <span className="muted">{acctErr}</span>
-          </p>
-        )}
-        {ownerPk && (
-          <p className="muted" style={{ marginTop: 6 }}>
-            This owner key lives in your browser storage. If you clear storage, you lose access to this smart account.
-          </p>
-        )}
-        <div className="row">
-          <div>
-            <div className="muted">salt</div>
-            <input className="input" value={salt} onChange={(e) => setSalt(e.target.value)} />
-          </div>
-          <div>
-            <div className="muted">allowance periods</div>
-            <input className="input" value={periods} onChange={(e) => setPeriods(e.target.value)} />
-          </div>
-          <div>
-            <div className="muted">mint (raw units, default = 10× plan price)</div>
-            <input
-              className="input"
-              value={mint}
-              onChange={(e) => {
-                setMintTouched(true);
-                setMint(e.target.value);
-              }}
-            />
-          </div>
-        </div>
-        <div className="row" style={{ marginTop: 14 }}>
-          <button
-            className="btn btnPrimary"
-            disabled={busy || chainKey !== "baseTestnet" || !ownerPk || smartAccount.length !== 42}
-            onClick={run}
-            data-testid="run-subscribe"
-          >
-            {busy ? "Running…" : "Run sponsored subscribe"}
-          </button>
-          {busy && (
-            <span className="row" style={{ alignItems: "center", gap: 8 }}>
-              <span className="spinner" />
-              <span className="muted">Elapsed: {elapsed}s</span>
-            </span>
-          )}
-        </div>
-        <div className="row" style={{ marginTop: 12 }}>
-          <div>
-            <div className="muted">Stage</div>
-            <div>
-              <b data-testid="stage">{stage}</b>
-            </div>
-          </div>
-          <div>
-            <div className="muted">On-chain subscription</div>
-            <div data-testid="sub-status">
-        {hasAccount && !hasPolled && !subId ? "Loading on-chain state…" : subStatus}
-            </div>
-          </div>
-          <div>
-            <div className="muted">subscriptionId</div>
-            <div data-testid="sub-id">{subId || "-"}</div>
-          </div>
-        </div>
-        {errMsg && (
-          <p style={{ marginTop: 10 }}>
-            <b>Error:</b> <span className="muted">{errMsg}</span>
-          </p>
-        )}
-      </div>
 
-      <div className="card">
-        <h3 style={{ marginTop: 0 }}>Story (what just happened)</h3>
-        <ul className="muted">
-          <li>
-            1) Generate a local AA owner key (stored in your browser): <b>{ownerAddr ? "done" : "pending"}</b>
-          </li>
-          <li>
-            2) Derive your smart account address: <b>{smartAccount.length === 42 ? "done" : "pending"}</b>
-          </li>
-          <li>
-            3) Sponsor a UserOp to mint ~10× the plan price to the smart account:{" "}
-            <b>{!hasRun ? "-" : busy ? "in progress" : resp ? "done" : "pending"}</b>
-          </li>
-          <li>
-            4) Grant OpenSub allowance to spend those tokens:{" "}
-            <b>{!hasRun ? "-" : tokenAllowance > 0n ? "done" : "pending"}</b>
-          </li>
-          <li>
-            5) Subscription created and active on-chain: <b>{!hasRun ? "-" : subId ? "done" : "pending"}</b>
-          </li>
-          <li>
-            6) Next renewal (paidThrough): <b>{!hasRun ? "-" : subId ? fmtTs(paidThrough) : "pending"}</b>
-          </li>
-        </ul>
-      </div>
-
-      <div className="card">
-        <h3 style={{ marginTop: 0 }}>Token status (smart account)</h3>
-        {!hasAccount ? (
-          <p className="muted">Generate an owner to see smart account balances.</p>
-        ) : !hasPolled && tokenBalance === 0n && tokenAllowance === 0n && planPrice === 0n && planInterval === 0n ? (
-          <p className="muted">Loading on-chain state…</p>
-        ) : (
-          <>
+        <div className="stack">
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>Web3 details (under the hood)</h3>
             <div className="row">
               <div>
-                <div className="muted">Account</div>
-                <code>{smartAccount}</code>
+                <div className="muted">Chain</div>
+                <div>Base Sepolia (AA-only)</div>
+              </div>
+              <div>
+                <div className="muted">planId</div>
+                <div>{planId.toString()}</div>
+              </div>
+              <div>
+                <div className="muted">OpenSub</div>
+                <code>{openSub}</code>
               </div>
               <div>
                 <div className="muted">Token</div>
                 <code>{tokenAddr}</code>
               </div>
+            </div>
+            <div className="row" style={{ marginTop: 10 }}>
               <div>
-                <div className="muted">Balance</div>
-                <div>
-                  {fmtUnits(tokenBalance, tokenMeta.decimals)} {tokenMeta.symbol}
-                </div>
+                <div className="muted">AA owner (local)</div>
+                <code data-testid="owner-addr">{ownerAddr || "not generated"}</code>
               </div>
               <div>
-                <div className="muted">Allowance → OpenSub</div>
-                <div>
-                  {fmtUnits(tokenAllowance, tokenMeta.decimals)} {tokenMeta.symbol}
-                </div>
-              </div>
-              <div>
-                <div className="muted">Plan price</div>
-                <div>
-                  {fmtUnits(planPrice, tokenMeta.decimals)} {tokenMeta.symbol}
-                </div>
-              </div>
-              <div>
-                <div className="muted">Interval</div>
-                <div>{planInterval ? `${planInterval.toString()}s` : "-"}</div>
+                <div className="muted">Smart account</div>
+                <code data-testid="smart-account">{smartAccount || "-"}</code>
               </div>
             </div>
-            {!hasPolled && (
-              <p className="muted" style={{ marginTop: 6 }}>
-                Refreshing on-chain state…
-              </p>
-            )}
+            <div className="row" style={{ marginTop: 10 }}>
+              <div>
+                <div className="muted">salt</div>
+                <input className="input" value={salt} onChange={(e) => setSalt(e.target.value)} />
+              </div>
+              <div>
+                <div className="muted">allowance periods</div>
+                <input className="input" value={periods} onChange={(e) => setPeriods(e.target.value)} />
+              </div>
+              <div>
+                <div className="muted">mint (raw units, default = 10× plan price)</div>
+                <input
+                  className="input"
+                  value={mint}
+                  onChange={(e) => {
+                    setMintTouched(true);
+                    setMint(e.target.value);
+                  }}
+                />
+              </div>
+            </div>
             <p className="muted" style={{ marginTop: 8 }}>
-              Balance/allowance are for the <b>current smart account</b>. Plan price/interval are chain-level settings.
+              These settings are intentionally exposed for demo/testing. In production they would live in a backend or
+              be user-hidden.
             </p>
-          </>
-        )}
-      </div>
+          </div>
 
-      <div className="card">
-        <h3 style={{ marginTop: 0 }}>Active subscription (smart account)</h3>
-        {!hasAccount ? (
-          <p className="muted">Generate an owner to load subscription state.</p>
-        ) : !hasPolled && !subId ? (
-          <p className="muted">Loading on-chain state…</p>
-        ) : !subId ? (
-          <p className="muted">No active subscription yet.</p>
-        ) : (
-          <>
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>Explorer links</h3>
             <div className="row">
               <div>
-                <div className="muted">subscriptionId</div>
-                <div>{subId}</div>
+                <div className="muted">OpenSub</div>
+                <a href={`${explorerBase}/address/${openSub}`} target="_blank" rel="noreferrer">
+                  View on explorer
+                </a>
               </div>
               <div>
-                <div className="muted">status</div>
-              <div data-testid="sub-status-label">
-                {isActionPending ? "Action pending…" : decodeStatus(subStatusNum)}
-              </div>
-              </div>
-              <div>
-                <div className="muted">paidThrough (current period end)</div>
-                <div>{fmtTs(paidThrough)}</div>
+                <div className="muted">Token</div>
+                <a href={`${explorerBase}/address/${tokenAddr}`} target="_blank" rel="noreferrer">
+                  View on explorer
+                </a>
               </div>
               <div>
-                <div className="muted">next scheduled renewal</div>
-                <div>
-                  {nextDue > 0n ? fmtTs(nextDue) : "-"}
-                </div>
+                <div className="muted">Smart account</div>
+                {smartAccount ? (
+                  <a href={`${explorerBase}/address/${smartAccount}`} target="_blank" rel="noreferrer">
+                    {smartAccount}
+                  </a>
+                ) : (
+                  <span className="muted">-</span>
+                )}
               </div>
               <div>
-                <div className="muted">due in</div>
-                <div>
-                  {nextDue > 0n && now > 0n
-                    ? isDue
-                      ? "due now"
-                      : fmtDuration(nextDue > now ? nextDue - now : 0n)
-                    : "-"}
-                </div>
-              </div>
-              {isDue && overdueBy > 0n ? (
-                <div>
-                  <div className="muted">overdue by</div>
-                  <div>{fmtDuration(overdueBy)}</div>
-                </div>
-              ) : null}
-              <div>
-                <div className="muted">isDue</div>
-                <div data-testid="sub-is-due">{String(isDue)}</div>
-              </div>
-              <div>
-                <div className="muted">lastChargedAt</div>
-                <div>{fmtTs(lastChargedAt)}</div>
+                <div className="muted">Transaction</div>
+                {!hasAnyRun ? (
+                  <span className="muted">-</span>
+                ) : txHash ? (
+                  <a href={`${explorerBase}/tx/${txHash}`} target="_blank" rel="noreferrer">
+                    View tx
+                  </a>
+                ) : (
+                  <span className="muted">pending</span>
+                )}
               </div>
             </div>
-            {!hasPolled && (
-              <p className="muted" style={{ marginTop: 6 }}>
-                Refreshing on-chain state…
-              </p>
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="card">
-        <h3 style={{ marginTop: 0 }}>Manage subscription</h3>
-        {!subId ? (
-          <p className="muted">Run a gasless subscribe first to create a subscription.</p>
-        ) : (
-          <>
-            <p className="muted" style={{ marginTop: 0 }}>
-              Note: in production, <b>renewals are handled by the keeper</b> (or any third-party collector), not the
-              subscriber. Cancels/resumes are user actions.
-            </p>
-            <div className="row" style={{ gap: 10 }}>
-              <button
-                className="btn"
-                disabled={actionBusy || busy || actionPending || chainKey !== "baseTestnet"}
-                onClick={() => runAction("collect")}
-                data-testid="action-collect"
-              >
-                {actionBusy ? "Working…" : "Collect now"}
-              </button>
-              <button
-                className="btn"
-                disabled={actionBusy || busy || actionPending || chainKey !== "baseTestnet"}
-                onClick={() => runAction("cancel_now")}
-                data-testid="action-cancel-now"
-              >
-                Cancel now
-              </button>
-              <button
-                className="btn"
-                disabled={actionBusy || busy || actionPending || chainKey !== "baseTestnet"}
-                onClick={() => runAction("cancel_end")}
-                data-testid="action-cancel-end"
-              >
-                Cancel at period end
-              </button>
-              <button
-                className="btn"
-                disabled={actionBusy || busy || actionPending || chainKey !== "baseTestnet"}
-                onClick={() => runAction("resume")}
-                data-testid="action-resume"
-              >
-                Resume auto-renew
-              </button>
-            </div>
-            {actionPending && (
+            {hasAnyRun && userOpHash && (
               <p className="muted" style={{ marginTop: 8 }}>
-                Action pending on-chain. Wait for confirmation before sending another action.
+                UserOp hash: <code data-testid="userop-hash">{userOpHash}</code>
               </p>
             )}
-            <div className="row" style={{ marginTop: 12 }}>
-              <div>
-                <div className="muted">Action stage</div>
-                <div>
-                  <b data-testid="action-stage">{actionStage}</b>
-                </div>
+            {hasAnyRun && userOpHash && (
+              <div style={{ marginTop: 8 }}>
+                <p className="muted" style={{ marginTop: 0 }} data-testid="userop-status">
+                  {userOpStatus ||
+                    (txHash
+                      ? `Included in tx ${txHash}`
+                      : "Checking bundler status automatically…")}
+                </p>
               </div>
-              {actionBusy && (
-                <span className="row" style={{ alignItems: "center", gap: 8 }}>
-                  <span className="spinner" />
-                  <span className="muted">Working…</span>
-                </span>
-              )}
-            </div>
-            {actionErr && (
-              <p style={{ marginTop: 10 }}>
-                <b>Error:</b> <span className="muted">{actionErr}</span>
-              </p>
             )}
-            {actionLogs && (
+            {resp?.logs && (
               <details style={{ marginTop: 8 }}>
-                <summary data-testid="action-logs-toggle">Action CLI logs (stderr)</summary>
-                <pre style={{ whiteSpace: "pre-wrap" }} data-testid="action-logs">
-                  {actionLogs}
-                </pre>
+                <summary>CLI logs (stderr)</summary>
+                <pre style={{ whiteSpace: "pre-wrap" }}>{resp.logs}</pre>
               </details>
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="card">
-        <h3 style={{ marginTop: 0 }}>Explorer links</h3>
-        <div className="row">
-          <div>
-            <div className="muted">OpenSub</div>
-            <a href={`${explorerBase}/address/${openSub}`} target="_blank" rel="noreferrer">
-              View on explorer
-            </a>
-          </div>
-          <div>
-            <div className="muted">Token</div>
-            <a href={`${explorerBase}/address/${tokenAddr}`} target="_blank" rel="noreferrer">
-              View on explorer
-            </a>
-          </div>
-          <div>
-            <div className="muted">Smart account</div>
-            {smartAccount ? (
-              <a href={`${explorerBase}/address/${smartAccount}`} target="_blank" rel="noreferrer">
-                {smartAccount}
-              </a>
-            ) : (
-              <span className="muted">-</span>
-            )}
-          </div>
-          <div>
-            <div className="muted">Transaction</div>
-            {!hasAnyRun ? (
-              <span className="muted">-</span>
-            ) : txHash ? (
-              <a href={`${explorerBase}/tx/${txHash}`} target="_blank" rel="noreferrer">
-                View tx
-              </a>
-            ) : (
-              <span className="muted">pending</span>
             )}
           </div>
         </div>
-        {hasAnyRun && userOpHash && (
-          <p className="muted" style={{ marginTop: 8 }}>
-            UserOp hash: <code data-testid="userop-hash">{userOpHash}</code>
-          </p>
-        )}
-        {hasAnyRun && userOpHash && (
-          <div style={{ marginTop: 8 }}>
-            <p className="muted" style={{ marginTop: 0 }} data-testid="userop-status">
-              {userOpStatus ||
-                (txHash
-                  ? `Included in tx ${txHash}`
-                  : "Checking bundler status automatically…")}
-            </p>
-          </div>
-        )}
-        {resp?.logs && (
-          <details style={{ marginTop: 8 }}>
-            <summary>CLI logs (stderr)</summary>
-            <pre style={{ whiteSpace: "pre-wrap" }}>{resp.logs}</pre>
-          </details>
-        )}
       </div>
     </>
   );

@@ -35,6 +35,25 @@ code {
   flex-wrap: wrap;
 }
 
+.split {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  align-items: start;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .card {
   border: 1px solid #e5e7eb;
   border-radius: 12px;
