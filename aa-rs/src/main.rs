@@ -1040,8 +1040,8 @@ async fn cmd_collect(args: CollectArgs) -> Result<()> {
     );
 
     let sub_id = U256::from(args.subscription_id);
-    let open_sub_abi =
-        AbiParser::default().parse(&["function collect(uint256 subscriptionId) returns (uint256,uint256)"])?;
+    let open_sub_abi = AbiParser::default()
+        .parse(&["function collect(uint256 subscriptionId) returns (uint256,uint256)"])?;
     let open_sub = Contract::new(dep.open_sub, open_sub_abi, client.clone());
     let collect_calldata = open_sub
         .method::<_, (U256, U256)>("collect", (sub_id,))?
@@ -1422,8 +1422,7 @@ async fn send_userop<M: Middleware + 'static>(
         .await
         .context("failed to fetch gas price")?;
     let bps = args.gas_multiplier_bps.max(1);
-    let max_priority_fee_per_gas =
-        gas_price * U256::from(bps) / U256::from(10_000u64);
+    let max_priority_fee_per_gas = gas_price * U256::from(bps) / U256::from(10_000u64);
     let max_fee_per_gas = max_priority_fee_per_gas;
 
     if bps != 10_000 {

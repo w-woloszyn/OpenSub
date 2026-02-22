@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPublicClient, getAddress, http } from "viem";
 import { baseSepolia } from "viem/chains";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
@@ -535,7 +535,7 @@ export function GaslessContent() {
   const txHash = hasAction ? actionTxHash ?? null : subscribeTxHash ?? null;
   const userOpHash = hasAction ? actionUserOpHash ?? null : subscribeUserOpHash ?? null;
 
-  async function checkUserOpStatus() {
+  const checkUserOpStatus = useCallback(async () => {
     if (hasAction && !actionUserOpHash) {
       setUserOpStatus("Waiting for action UserOp hash…");
       return;
@@ -560,7 +560,9 @@ export function GaslessContent() {
           setActionTxHash(tx);
         } else {
           setStage("Confirmed");
-          setResp((prev) => (prev ? { ...prev, result: { ...prev.result, txHash: tx } } : prev));
+          setResp((prev: any) =>
+            prev ? { ...prev, result: { ...(prev.result ?? {}), txHash: tx } } : prev
+          );
         }
         setRefreshTick((t) => t + 1);
         setHasPolled(false);
@@ -581,7 +583,7 @@ export function GaslessContent() {
     } catch (e: any) {
       setUserOpStatus(e?.message ?? String(e));
     }
-  }
+  }, [actionUserOpHash, hasAction, subId, userOpHash]);
 
   useEffect(() => {
     const hasPending = Boolean(userOpHash) && !txHash;
@@ -597,7 +599,7 @@ export function GaslessContent() {
       stopped = true;
       clearInterval(id);
     };
-  }, [userOpHash, txHash]);
+  }, [checkUserOpStatus, userOpHash, txHash]);
 
   return (
     <>
