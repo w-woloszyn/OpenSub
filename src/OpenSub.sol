@@ -42,7 +42,6 @@ contract OpenSub is ReentrancyGuard {
         Active, // auto-renew enabled
         NonRenewing, // auto-renew disabled; access valid until paidThrough
         Cancelled // ended immediately (access ended at/near cancel time)
-
     }
 
     struct Subscription {
