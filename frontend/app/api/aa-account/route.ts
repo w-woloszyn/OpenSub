@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type Req = {
   ownerPrivateKey?: string;

@@ -9,6 +9,7 @@ import { openSubAbi } from "@/abi/openSubAbi";
 
 // Required because this route spawns a local process (the Rust AA CLI).
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type Req = {
   // Demo inputs

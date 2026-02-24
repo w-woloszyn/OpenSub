@@ -5,6 +5,7 @@ import path from "node:path";
 
 // Required because this route spawns a local process (the Rust AA CLI).
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type Req = {
   salt?: number;
