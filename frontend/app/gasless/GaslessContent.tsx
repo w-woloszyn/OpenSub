@@ -274,6 +274,15 @@ export function GaslessContent() {
   }, [smartAccount, client, openSub, planId, tokenAddr, hasAnyRun, busy, actionBusy, respPending, hasAccount, isPending, refreshTick]);
 
   useEffect(() => {
+    if (!subId) return;
+    if (!stage.includes("Submitted")) return;
+    setStage("Confirmed");
+    if (!userOpStatus || userOpStatus.includes("Pending") || userOpStatus.includes("Checking")) {
+      setUserOpStatus("On-chain state updated; bundler receipt still pending.");
+    }
+  }, [subId, stage, userOpStatus]);
+
+  useEffect(() => {
     if (!subId) {
       setNowTs(0n);
       return;
